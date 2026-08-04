@@ -12,7 +12,7 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## Backend setup
 
-Stage 12 makes the Windows Agent channel durable. Session commands are committed to PostgreSQL with the business operation, delivered again after an offline Agent reconnects, and acknowledged by the target computer. The Agent records processed command IDs locally before guarded Windows actions, preventing a reconnect from executing the same logout, sleep, or shutdown twice.
+Stage 13 adds the WPF Player Screen used on each club computer. It communicates only with the local Windows Agent through an access-key protected named pipe, starts in a full-screen locked state, shows a compact live countdown during an active session, warns at ten and five minutes, and restores the current session after Agent or Player reconnect.
 
 ```bash
 cp .env.example .env
@@ -60,7 +60,7 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-The Stage 12 web panel includes:
+The Stage 13 web panel includes:
 
 - `/login` — JWT login connected to the API, plus clearly labelled admin/cashier UI previews for the static GitHub Pages deployment;
 - `/dashboard` — responsive sidebar, live-style summary cards, and 10 interactive computer station cards;
@@ -69,7 +69,7 @@ The Stage 12 web panel includes:
 - a new-session flow with duration, matching tariff, cash/card payment, automatic total, and ending-time calculation;
 - authenticated controls that persist session start, 30-minute extensions, completion, and payments;
 - an authenticated SignalR connection with automatic reconnect and live computer-grid refresh across open dashboards;
-- a visible Windows Agent offline-queue and guarded-executor status alongside the API, SignalR, and PostgreSQL services;
+- a visible Windows Agent and Player Screen live-timer status alongside the API, SignalR, and PostgreSQL services;
 - clearly labelled UI-demo navigation for reviewing the static GitHub Pages deployment without a hosted API.
 
 ### Frontend structure
@@ -99,4 +99,4 @@ src/
 
 ## Status
 
-Stages 1–12 are complete: the MVP requirements, dashboard, ASP.NET Core API, PostgreSQL persistence, JWT roles, transactional session/payment operations, real-time dashboard updates, durable Agent command delivery, local duplicate protection, and the opt-in Windows executor are ready. The locked player screen is the next milestone.
+Stages 1–13 are complete: the dashboard, API, PostgreSQL persistence, JWT roles, transactional session/payment operations, real-time updates, durable Agent delivery, duplicate protection, guarded Windows executor, and reconnect-safe WPF Player Screen are ready. A one-computer Windows installation and recovery test is the next milestone.

@@ -11,6 +11,13 @@ public static class AgentProtocol
     public static string ComputerGroup(Guid computerId) => $"computer:{computerId:N}";
 }
 
+public static class PlayerScreenProtocol
+{
+    public const string DefaultPipeName = "ArenaDesk.PlayerScreen";
+    public const string LockedMode = "locked";
+    public const string ActiveMode = "active";
+}
+
 public static class AgentCommandTypes
 {
     public const string Unlock = "unlock";
@@ -34,7 +41,9 @@ public sealed record AgentRegistration(
     string ComputerCode,
     string DisplayName,
     string EndAction,
-    DateTimeOffset ServerTimeUtc);
+    DateTimeOffset ServerTimeUtc,
+    Guid? ActiveSessionId,
+    DateTimeOffset? EndsAtUtc);
 
 public sealed record AgentHeartbeat(DateTimeOffset AgentTimeUtc);
 
@@ -45,3 +54,13 @@ public sealed record AgentCommandAcknowledgement(
     string Status,
     string? Error,
     DateTimeOffset AcknowledgedAtUtc);
+
+public sealed record PlayerScreenHandshake(string AccessKey);
+
+public sealed record PlayerScreenState(
+    string Mode,
+    string ComputerCode,
+    Guid? SessionId,
+    DateTimeOffset? EndsAtUtc,
+    string Message,
+    DateTimeOffset UpdatedAtUtc);

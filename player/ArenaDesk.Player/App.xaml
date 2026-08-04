@@ -1,0 +1,10 @@
+<Application x:Class="ArenaDesk.Player.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <SolidColorBrush x:Key="PanelBrush" Color="#F20D1424" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#818CF8" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#94A3B8" />
+    </Application.Resources>
+</Application>
