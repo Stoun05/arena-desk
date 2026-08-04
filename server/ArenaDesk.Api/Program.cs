@@ -1,7 +1,11 @@
 using System.Threading.RateLimiting;
 using ArenaDesk.Api.Endpoints;
 using ArenaDesk.Api.Options;
+using ArenaDesk.Api.Persistence;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +15,20 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 builder.Services.AddProblemDetails();
-builder.Services.AddHealthChecks();
+
+var connectionString = builder.Configuration.GetConnectionString("ArenaDesk");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException("ConnectionStrings:ArenaDesk must be configured.");
+}
+
+builder.Services.AddDbContextPool<ArenaDeskDbContext>(options =>
+    options.UseNpgsql(connectionString, npgsql =>
+        npgsql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(5), null)));
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
+    .AddCheck<DatabaseHealthCheck>("postgresql", tags: ["ready"]);
 
 builder.Services
     .AddOptions<ArenaDeskOptions>()
@@ -81,10 +98,17 @@ app.MapGet("/", () => Results.Ok(new
     service = "ArenaDesk.Api",
     version = "0.1.0",
     statusEndpoint = "/api/v1/system/status",
-    healthEndpoint = "/health/live",
+    healthEndpoints = new[] { "/health/live", "/health/ready" },
 }));
 
-app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("live"),
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready"),
+});
 app.MapSystemEndpoints();
 
 app.Run();

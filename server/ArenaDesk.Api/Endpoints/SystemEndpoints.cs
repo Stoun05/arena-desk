@@ -1,5 +1,7 @@
 using ArenaDesk.Api.Contracts;
 using ArenaDesk.Api.Options;
+using ArenaDesk.Api.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace ArenaDesk.Api.Endpoints;
@@ -12,18 +14,32 @@ public static class SystemEndpoints
             .WithTags("System")
             .RequireRateLimiting("api");
 
-        group.MapGet("/status", (
+        group.MapGet("/status", async (
             IHostEnvironment environment,
-            IOptions<ArenaDeskOptions> options) =>
+            IOptions<ArenaDeskOptions> options,
+            ArenaDeskDbContext database,
+            CancellationToken cancellationToken) =>
         {
+            var databaseStatus = "unavailable";
+            try
+            {
+                databaseStatus = await database.Database.CanConnectAsync(cancellationToken)
+                    ? "available"
+                    : "unavailable";
+            }
+            catch (Exception)
+            {
+                // The status endpoint remains available while readiness reports the dependency failure.
+            }
+
             var response = new SystemStatusResponse(
                 Service: "ArenaDesk.Api",
                 Version: "0.1.0",
                 Environment: environment.EnvironmentName,
                 ServerTimeUtc: DateTimeOffset.UtcNow,
                 ComputerLimit: options.Value.ComputerLimit,
-                Database: "not-configured",
-                Stage: 6);
+                Database: databaseStatus,
+                Stage: 7);
 
             return Results.Ok(response);
         })

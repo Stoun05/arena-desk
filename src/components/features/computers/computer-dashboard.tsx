@@ -308,7 +308,7 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
     <div className="flex flex-col gap-7">
       <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-medium text-indigo-300">Esasy panel · Stage 5</p>
+          <p className="text-sm font-medium text-indigo-300">Esasy panel · Stage 7</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em] text-white">Klubuň ýagdaýy</h1>
           <p className="mt-2 text-sm text-slate-400">10 kompýuteriň sessiýalaryny bir ekrandan dolandyryň.</p>
         </div>
@@ -340,10 +340,10 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
           </div>
         </div>
         <div className="flex items-center gap-3 sm:justify-end">
-          <span aria-hidden="true" className="size-2 rounded-full bg-amber-400" />
+          <span aria-hidden="true" className="size-2 rounded-full bg-emerald-400" />
           <div className="sm:text-right">
-            <p className="text-sm text-slate-300">PostgreSQL</p>
-            <p className="mt-1 text-xs text-amber-300">Stage 7-de birikdiriler</p>
+            <p className="text-sm text-slate-300">PostgreSQL + EF Core</p>
+            <p className="mt-1 text-xs text-emerald-300">6 tablisa · Stage 7 taýýar</p>
           </div>
         </div>
       </section>

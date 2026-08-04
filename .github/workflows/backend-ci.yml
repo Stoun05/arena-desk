@@ -18,6 +18,20 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: arena_desk
+          POSTGRES_USER: arena_desk
+          POSTGRES_PASSWORD: arena_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U arena_desk -d arena_desk"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -32,3 +46,29 @@ jobs:
 
       - name: Build
         run: dotnet build server/ArenaDesk.Api/ArenaDesk.Api.csproj --configuration Release --no-restore --warnaserror
+
+      - name: Apply initial database schema
+        env:
+          PGPASSWORD: arena_ci
+        run: psql --host 127.0.0.1 --username arena_desk --dbname arena_desk --file server/database/001_initial_schema.sql
+
+      - name: Verify API and PostgreSQL readiness
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://127.0.0.1:5080
+          ConnectionStrings__ArenaDesk: Host=127.0.0.1;Port=5432;Database=arena_desk;Username=arena_desk;Password=arena_ci
+          ArenaDesk__ClubName: ArenaDesk CI Club
+          ArenaDesk__ComputerLimit: 10
+          Cors__AllowedOrigins__0: http://localhost:3000
+        run: |
+          dotnet run --project server/ArenaDesk.Api/ArenaDesk.Api.csproj --configuration Release --no-build > /tmp/arena-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..20}; do
+            if curl --fail --silent --show-error http://127.0.0.1:5080/health/ready; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/arena-api.log
+          exit 1
