@@ -24,6 +24,38 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 - [MVP requirements](docs/requirements.md) — scope, roles, session rules, payments, offline operation, security, and acceptance criteria
 
+## Web dashboard setup
+
+Requirements:
+
+- Node.js 20.9 or newer
+- npm
+
+Start the development server:
+
+```bash
+npm install
+npm run dev
+```
+
+Then open `http://localhost:3000`.
+
+### Frontend structure
+
+```text
+src/
+├── app/                 # Next.js routes and layouts
+├── components/
+│   ├── ui/              # shadcn/ui components
+│   ├── layout/          # reusable page shells
+│   └── features/        # business feature components
+├── data/                # static and mock data
+├── hooks/               # reusable React hooks
+├── lib/                 # shared utilities
+├── services/            # API and SignalR clients
+└── types/               # shared TypeScript types
+```
+
 ## Core session flow
 
 1. A cashier selects an available computer.
@@ -35,4 +67,4 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## Status
 
-Stage 1 is complete: the MVP requirements and acceptance criteria are documented. Technical architecture and initial application setup are the next milestones.
+Stages 1 and 2 are complete: the MVP requirements are documented and the Next.js web dashboard foundation is configured with TypeScript, Tailwind CSS, and shadcn/ui. Login and the main dashboard are the next milestone.
