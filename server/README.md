@@ -1,6 +1,6 @@
 # ArenaDesk server
 
-Stage 7 adds PostgreSQL persistence through Entity Framework Core. The model contains users, computers, tariffs, sessions, payments, and audit logs.
+Stage 8 adds JWT authentication and role-based authorization on top of the PostgreSQL data layer. Passwords are hashed, login events are audited, and administrator routes reject cashier tokens.
 
 ## Requirements
 
@@ -23,6 +23,9 @@ The local server listens on `http://localhost:5080`.
 - `GET /api/v1/system/status` — service, environment, computer limit, database status, and stage
 - `GET /health/live` — process health check
 - `GET /health/ready` — PostgreSQL readiness check
+- `POST /api/v1/auth/login` — validate credentials and issue an eight-hour JWT
+- `GET /api/v1/auth/me` — return the authenticated user
+- `GET /api/v1/admin/users` — administrator-only user summary
 
 ## Configuration
 
@@ -33,5 +36,8 @@ Configuration can be overridden with standard ASP.NET Core environment variables
 - `ArenaDesk__ComputerLimit`
 - `Cors__AllowedOrigins__0`
 - `ConnectionStrings__ArenaDesk`
+- `Jwt__SigningKey`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__ExpirationHours`
+- `BootstrapUsers__AdministratorUsername`, `BootstrapUsers__AdministratorPassword`
+- `BootstrapUsers__CashierUsername`, `BootstrapUsers__CashierPassword`
 
-No real secrets are committed. The database schema in `server/database/001_initial_schema.sql` creates six tables and seeds ten computers plus Standard/VIP tariffs on the first PostgreSQL startup.
+The database schema in `server/database/001_initial_schema.sql` creates six tables and seeds ten computers plus Standard/VIP tariffs. On API startup, missing administrator and cashier accounts are created with hashed passwords from configuration. Values in `.env.example` are local-only examples and must be replaced outside development.

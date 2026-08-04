@@ -1,35 +1,28 @@
 "use client";
 
-import { type FormEvent, useState, useTransition } from "react";
-import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
+import { type FormEvent, useState } from "react";
+import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { UserRole } from "@/types/auth";
+import { login } from "@/services";
 
 type FormErrors = {
   username?: string;
   password?: string;
+  form?: string;
 };
 
 export function LoginForm() {
   const router = useRouter();
-  const [role, setRole] = useState<UserRole>("admin");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
@@ -41,8 +34,8 @@ export function LoginForm() {
       nextErrors.username = "Ulanyjy ady azyndan 2 harp bolmaly.";
     }
 
-    if (password.length < 6) {
-      nextErrors.password = "Parol azyndan 6 belgi bolmaly.";
+    if (password.length < 8) {
+      nextErrors.password = "Parol azyndan 8 belgi bolmaly.";
     }
 
     setErrors(nextErrors);
@@ -51,28 +44,25 @@ export function LoginForm() {
       return;
     }
 
-    startTransition(() => {
-      router.push(`/dashboard?role=${role}`);
-    });
+    setIsPending(true);
+    try {
+      await login(username, password);
+      router.push("/dashboard");
+    } catch (error) {
+      setErrors({
+        form: error instanceof TypeError
+          ? "Backend bilen baglanyşyk ýok. Lokal API-ni işlediň."
+          : error instanceof Error
+            ? error.message
+            : "Backend bilen baglanyşyk şowsuz.",
+      });
+    } finally {
+      setIsPending(false);
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-      <div className="space-y-2">
-        <Label htmlFor="role" className="text-slate-300">
-          Ulanyjy roly
-        </Label>
-        <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-          <SelectTrigger id="role" className="h-11 w-full border-white/10 bg-white/[0.035] text-slate-100">
-            <SelectValue placeholder="Roly saýlaň" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="admin">Administrator</SelectItem>
-            <SelectItem value="cashier">Kassir</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <div className="space-y-2">
         <Label htmlFor="username" className="text-slate-300">
           Ulanyjy ady
@@ -93,6 +83,12 @@ export function LoginForm() {
         ) : null}
       </div>
 
+      {errors.form ? (
+        <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/[0.07] px-3 py-2.5 text-xs text-red-200">
+          {errors.form}
+        </p>
+      ) : null}
+
       <div className="space-y-2">
         <Label htmlFor="password" className="text-slate-300">
           Parol
@@ -103,7 +99,7 @@ export function LoginForm() {
             name="password"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
-            placeholder="Azyndan 6 belgi"
+            placeholder="Azyndan 8 belgi"
             aria-invalid={Boolean(errors.password)}
             aria-describedby={errors.password ? "password-error" : undefined}
             className="h-11 border-white/10 bg-white/[0.035] pr-11 text-white placeholder:text-slate-600"
@@ -133,13 +129,21 @@ export function LoginForm() {
         {isPending ? "Açylýar..." : "Ulgama gir"}
       </Button>
 
-      <Button asChild type="button" size="lg" variant="outline" className="h-11 w-full border-white/10 bg-white/[0.03] text-slate-200">
-        <Link href="/dashboard?role=admin">Dashboard demo-y göni aç</Link>
-      </Button>
+      <div className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 text-xs leading-5 text-emerald-100/80">
+        <p className="flex items-center gap-2 font-medium text-emerald-200">
+          <ShieldCheck aria-hidden="true" className="size-4" />
+          Hakyky JWT giriş · Stage 8
+        </p>
+        <p className="mt-1">Lokal demo: <b>admin / Admin123!</b> ýa-da <b>cashier / Cashier123!</b></p>
+      </div>
 
-      <div className="rounded-xl border border-amber-400/15 bg-amber-400/[0.06] p-3 text-xs leading-5 text-amber-200/80">
-        Demo režimi: maglumatlar backend-e iberilmeýär. Islendik 2+ belgili
-        ulanyjy adyny we 6+ belgili paroly girizip bilersiňiz.
+      <div className="grid grid-cols-2 gap-2">
+        <Button asChild type="button" variant="outline" className="border-white/10 bg-white/[0.03] text-slate-300">
+          <Link href="/dashboard?demo=admin">Admin UI demo</Link>
+        </Button>
+        <Button asChild type="button" variant="outline" className="border-white/10 bg-white/[0.03] text-slate-300">
+          <Link href="/dashboard?demo=cashier">Kassir UI demo</Link>
+        </Button>
       </div>
     </form>
   );

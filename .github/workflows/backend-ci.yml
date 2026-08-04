@@ -60,15 +60,47 @@ jobs:
           ArenaDesk__ClubName: ArenaDesk CI Club
           ArenaDesk__ComputerLimit: 10
           Cors__AllowedOrigins__0: http://localhost:3000
+          Jwt__SigningKey: arena-desk-ci-signing-key-with-more-than-32-characters
+          Jwt__Issuer: ArenaDesk.Api
+          Jwt__Audience: ArenaDesk.Web
+          Jwt__ExpirationHours: 8
+          BootstrapUsers__AdministratorUsername: admin
+          BootstrapUsers__AdministratorPassword: Admin123!
+          BootstrapUsers__CashierUsername: cashier
+          BootstrapUsers__CashierPassword: Cashier123!
         run: |
           dotnet run --project server/ArenaDesk.Api/ArenaDesk.Api.csproj --configuration Release --no-build > /tmp/arena-api.log 2>&1 &
           api_pid=$!
           trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          ready=false
           for attempt in {1..20}; do
             if curl --fail --silent --show-error http://127.0.0.1:5080/health/ready; then
-              exit 0
+              ready=true
+              break
             fi
             sleep 1
           done
-          cat /tmp/arena-api.log
-          exit 1
+          if [ "$ready" != true ]; then
+            cat /tmp/arena-api.log
+            exit 1
+          fi
+
+          admin_token=$(curl --fail --silent --show-error \
+            --header "Content-Type: application/json" \
+            --data '{"username":"admin","password":"Admin123!"}' \
+            http://127.0.0.1:5080/api/v1/auth/login | jq --raw-output '.accessToken')
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $admin_token" \
+            http://127.0.0.1:5080/api/v1/auth/me | jq --exit-status '.role == "admin"'
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $admin_token" \
+            http://127.0.0.1:5080/api/v1/admin/users | jq --exit-status 'length == 2'
+
+          cashier_token=$(curl --fail --silent --show-error \
+            --header "Content-Type: application/json" \
+            --data '{"username":"cashier","password":"Cashier123!"}' \
+            http://127.0.0.1:5080/api/v1/auth/login | jq --raw-output '.accessToken')
+          cashier_status=$(curl --silent --output /tmp/cashier-admin-response.json --write-out '%{http_code}' \
+            --header "Authorization: Bearer $cashier_token" \
+            http://127.0.0.1:5080/api/v1/admin/users)
+          test "$cashier_status" = "403"

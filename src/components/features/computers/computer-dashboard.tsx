@@ -308,7 +308,7 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
     <div className="flex flex-col gap-7">
       <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-medium text-indigo-300">Esasy panel · Stage 7</p>
+          <p className="text-sm font-medium text-indigo-300">Esasy panel · Stage 8</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em] text-white">Klubuň ýagdaýy</h1>
           <p className="mt-2 text-sm text-slate-400">10 kompýuteriň sessiýalaryny bir ekrandan dolandyryň.</p>
         </div>
@@ -335,8 +335,8 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
             <Server aria-hidden="true" className="size-4.5" />
           </span>
           <div>
-            <p className="text-sm font-medium text-slate-200">ASP.NET Core API</p>
-            <p className="mt-1 text-xs text-emerald-300">Stage 6 binýady taýýar</p>
+            <p className="text-sm font-medium text-slate-200">JWT autentifikasiýa</p>
+            <p className="mt-1 text-xs text-emerald-300">Admin + Kassir · Stage 8 taýýar</p>
           </div>
         </div>
         <div className="flex items-center gap-3 sm:justify-end">

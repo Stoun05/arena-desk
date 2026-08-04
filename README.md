@@ -12,7 +12,7 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## Backend setup
 
-Stage 7 adds PostgreSQL and Entity Framework Core persistence under `server/ArenaDesk.Api`, including six mapped business tables, database readiness checks, and repeatable local containers.
+Stage 8 adds real JWT login and administrator/cashier authorization under `server/ArenaDesk.Api`. PostgreSQL stores hashed user credentials and audit events, while the web panel keeps the active token until it expires or the user signs out.
 
 ```bash
 cp .env.example .env
@@ -21,6 +21,8 @@ docker compose up --build
 ```
 
 Then verify `http://localhost:5080/api/v1/system/status`, `http://localhost:5080/health/live`, and `http://localhost:5080/health/ready`.
+
+Local development accounts from `.env.example` are `admin / Admin123!` and `cashier / Cashier123!`. Replace these examples and the JWT signing key before using ArenaDesk outside local development.
 
 ## MVP roadmap
 
@@ -52,9 +54,9 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-The Stage 5 frontend demo includes:
+The Stage 8 web panel includes:
 
-- `/login` — administrator/cashier role selection and validated demo login form;
+- `/login` — JWT login connected to the API, plus clearly labelled admin/cashier UI previews for the static GitHub Pages deployment;
 - `/dashboard` — responsive sidebar, live-style summary cards, and 10 interactive computer station cards;
 - Standard/VIP tiers and Boş, Ulanylýar, Wagt gutarýar, Gulply, and Offline visual states;
 - a station detail panel with demo customer, remaining time, tariff, and current charge;
@@ -89,4 +91,4 @@ src/
 
 ## Status
 
-Stages 1–7 are complete: the MVP requirements, frontend foundation, demo login, responsive navigation, interactive 10-computer dashboard, frontend session-management flow, ASP.NET Core API foundation, and PostgreSQL/Entity Framework Core persistence are ready. Authentication and real cashier/administrator authorization are the next milestone.
+Stages 1–8 are complete: the MVP requirements, frontend foundation, responsive navigation, interactive 10-computer dashboard, frontend session-management flow, ASP.NET Core API, PostgreSQL/Entity Framework Core persistence, and JWT authentication with cashier/administrator roles are ready. Real session and payment business operations are the next milestone.
