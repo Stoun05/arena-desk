@@ -40,6 +40,12 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
+The Stage 3 frontend demo includes:
+
+- `/login` — administrator/cashier role selection and validated demo login form;
+- `/dashboard` — responsive sidebar, mobile menu, summary cards, system status, and empty states;
+- demo-only navigation while the backend authentication service is not yet available.
+
 ### Frontend structure
 
 ```text
@@ -67,4 +73,4 @@ src/
 
 ## Status
 
-Stages 1 and 2 are complete: the MVP requirements are documented and the Next.js web dashboard foundation is configured with TypeScript, Tailwind CSS, and shadcn/ui. Login and the main dashboard are the next milestone.
+Stages 1–3 are complete: the MVP requirements, frontend foundation, demo login, responsive navigation, and main dashboard shell are ready. Computer station cards and their visual statuses are the next milestone.
