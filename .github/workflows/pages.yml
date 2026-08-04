@@ -1,10 +1,10 @@
-name: Deploy GitHub Pages demo
+name: Deploy ArenaDesk demo to GitHub Pages
 
 on:
   push:
     branches:
-      - main
       - agent/initial-dashboard
+      - main
   workflow_dispatch:
 
 permissions:
@@ -20,7 +20,6 @@ jobs:
   build:
     name: Build static demo
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -37,16 +36,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build static ArenaDesk demo
+      - name: Build static demo
         env:
           GITHUB_PAGES: "true"
           NEXT_PUBLIC_DEMO_MODE: "true"
         run: npm run build
 
-      - name: Upload GitHub Pages artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: ./out
+          path: out
 
   deploy:
     name: Publish GitHub Pages
@@ -55,7 +54,6 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

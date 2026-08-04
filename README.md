@@ -1,8 +1,11 @@
 # ArenaDesk
 
 [![CI](https://github.com/Stoun05/arena-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/Stoun05/arena-desk/actions/workflows/ci.yml)
+[![GitHub Pages](https://github.com/Stoun05/arena-desk/actions/workflows/pages.yml/badge.svg)](https://stoun05.github.io/arena-desk/)
 
 ArenaDesk is a management platform for gaming clubs and internet cafés. It is designed to manage timed computer sessions, customer access, tariffs, payments, sales, games, and operational reports from one dashboard.
+
+Public static demo: [https://stoun05.github.io/arena-desk/](https://stoun05.github.io/arena-desk/). Select Administrator or Cashier and use `demo123`. The Pages demo uses browser-only sample data; the real API and PostgreSQL deployment remain separate.
 
 ## Current milestone
 

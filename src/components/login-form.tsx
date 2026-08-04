@@ -3,7 +3,7 @@
 import { Eye, EyeOff, Gamepad2, LockKeyhole, ShieldCheck, UserRoundCog } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { login } from "@/lib/api-client";
+import { isDemoMode, login } from "@/lib/api-client";
 
 const accountPresets = [
   { email: "admin@arena.local", label: "Administrator", detail: "Ähli mümkinçilikler" },
@@ -13,14 +13,14 @@ const accountPresets = [
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState(accountPresets[0].email);
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(isDemoMode ? "demo123" : "");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectAccount = (index: number) => {
     setEmail(accountPresets[index].email);
-    setPassword("");
+    setPassword(isDemoMode ? "demo123" : "");
     setError("");
   };
 
@@ -40,7 +40,7 @@ export function LoginForm() {
         <div className="login-card">
           <div className="login-card-head"><span className="login-lock"><LockKeyhole size={21} /></span><div><p className="eyebrow">HOŞ GELDIŇIZ</p><h2>Ulgama giriş</h2></div></div>
 
-          <div className="demo-warning"><strong>Howpsuz giriş</strong><span>Parol serverde hash görnüşinde barlanýar. Sessiya HttpOnly cookie arkaly saklanýar.</span></div>
+          <div className="demo-warning"><strong>{isDemoMode ? "GitHub Pages demo" : "Howpsuz giriş"}</strong><span>{isDemoMode ? "Administrator ýa-da Kassir saýla. Demo paroly: demo123" : "Parol serverde hash görnüşinde barlanýar. Sessiya HttpOnly cookie arkaly saklanýar."}</span></div>
 
           <div className="account-switcher" aria-label="Demo hasaby saýla">
             <button type="button" className={email === accountPresets[0].email ? "account-option selected" : "account-option"} onClick={() => selectAccount(0)}><UserRoundCog size={17} /><span><strong>{accountPresets[0].label}</strong><small>{accountPresets[0].detail}</small></span></button>
@@ -65,7 +65,7 @@ export function LoginForm() {
             <button className="primary-button login-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? "Girilýär..." : "Dashboard-a gir"}</button>
           </form>
 
-          <p className="demo-credentials">Ilkinji parollar server işe girizilende <code>.env</code> arkaly bellenýär.</p>
+          <p className="demo-credentials">{isDemoMode ? <>Bu statik görkezme režimidir; hakyky API we maglumat bazasy ulanylmaýar.</> : <>Ilkinji parollar server işe girizilende <code>.env</code> arkaly bellenýär.</>}</p>
         </div>
       </section>
     </main>
