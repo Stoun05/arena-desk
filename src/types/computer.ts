@@ -1,5 +1,7 @@
 export type ComputerTier = "standard" | "vip";
 
+export type PaymentMethod = "cash" | "card";
+
 export type ComputerStatus =
   | "available"
   | "occupied"
@@ -15,6 +17,8 @@ export type ComputerStation = {
   hourlyRate: number;
   customer?: string;
   startedAt?: string;
-  remainingTime?: string;
+  endsAt?: string;
+  remainingSeconds?: number;
   currentCharge?: number;
+  paymentMethod?: PaymentMethod;
 };

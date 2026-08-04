@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState, useTransition } from "react";
 import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -130,6 +131,10 @@ export function LoginForm() {
           <LogIn aria-hidden="true" data-icon="inline-start" />
         )}
         {isPending ? "Açylýar..." : "Ulgama gir"}
+      </Button>
+
+      <Button asChild type="button" size="lg" variant="outline" className="h-11 w-full border-white/10 bg-white/[0.03] text-slate-200">
+        <Link href="/dashboard?role=admin">Dashboard demo-y göni aç</Link>
       </Button>
 
       <div className="rounded-xl border border-amber-400/15 bg-amber-400/[0.06] p-3 text-xs leading-5 text-amber-200/80">

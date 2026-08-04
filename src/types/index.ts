@@ -3,4 +3,5 @@ export type {
   ComputerStation,
   ComputerStatus,
   ComputerTier,
+  PaymentMethod,
 } from "./computer";
