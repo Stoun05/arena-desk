@@ -167,6 +167,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapSystemEndpoints();
 app.MapAuthEndpoints();
 app.MapAdminEndpoints();
+app.MapOperationalEndpoints();
 
 await DatabaseInitializer.InitializeAsync(app.Services);
 

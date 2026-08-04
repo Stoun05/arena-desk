@@ -1,6 +1,6 @@
 # ArenaDesk server
 
-Stage 8 adds JWT authentication and role-based authorization on top of the PostgreSQL data layer. Passwords are hashed, login events are audited, and administrator routes reject cashier tokens.
+Stage 9 connects authenticated computer, session, tariff, and payment operations to PostgreSQL. Starting and extending a session records its payment in the same database transaction; completing it releases the computer.
 
 ## Requirements
 
@@ -26,6 +26,11 @@ The local server listens on `http://localhost:5080`.
 - `POST /api/v1/auth/login` — validate credentials and issue an eight-hour JWT
 - `GET /api/v1/auth/me` — return the authenticated user
 - `GET /api/v1/admin/users` — administrator-only user summary
+- `GET /api/v1/computers` — ten computers with tariff and active-session state
+- `GET /api/v1/tariffs` — active Standard/VIP tariffs
+- `POST /api/v1/sessions` — atomically start a session and record its payment
+- `POST /api/v1/sessions/{id}/extend` — atomically add time and another payment
+- `POST /api/v1/sessions/{id}/complete` — complete the session and release the computer
 
 ## Configuration
 

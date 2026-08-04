@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Banknote,
   CheckCircle2,
@@ -31,6 +32,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { ComputerStation, PaymentMethod } from "@/types/computer";
+import {
+  completeSession as completeSessionRequest,
+  extendSession as extendSessionRequest,
+  getComputers,
+  startSession as startSessionRequest,
+} from "@/services";
 
 import { ComputerStationGrid } from "./computer-station-grid";
 
@@ -63,6 +70,8 @@ function SessionSheet({
   onCustomerChange,
   openedAt,
   onConfirm,
+  isDemo,
+  operationPending,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -76,7 +85,9 @@ function SessionSheet({
   customer: string;
   onCustomerChange: (customer: string) => void;
   openedAt: number | null;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
+  isDemo: boolean;
+  operationPending: boolean;
 }) {
   const selectedStation = stations.find((station) => station.id === stationId);
   const total = selectedStation ? roundMoney((selectedStation.hourlyRate * duration) / 60) : 0;
@@ -191,7 +202,7 @@ function SessionSheet({
           <Button
             type="button"
             size="lg"
-            disabled={!selectedStation}
+            disabled={!selectedStation || operationPending}
             onClick={onConfirm}
             className="h-11 w-full bg-indigo-500 text-white hover:bg-indigo-400"
           >
@@ -199,7 +210,9 @@ function SessionSheet({
             Tölegi tassykla we başlat
           </Button>
           <p className="text-center text-[11px] leading-5 text-slate-600">
-            Demo režimi: maglumatlar backend-e ýazylmaýar.
+            {isDemo
+              ? "Demo režimi: maglumatlar backend-e ýazylmaýar."
+              : "Tassyklansa sessiýa we töleg PostgreSQL-a ýazylýar."}
           </p>
         </div>
       </SheetContent>
@@ -208,7 +221,9 @@ function SessionSheet({
 }
 
 export function ComputerDashboard({ initialStations }: { initialStations: ComputerStation[] }) {
-  const [stations, setStations] = useState(initialStations);
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.has("demo");
+  const [stations, setStations] = useState(isDemo ? initialStations : []);
   const [sessionOpen, setSessionOpen] = useState(false);
   const [sessionStationId, setSessionStationId] = useState("");
   const [duration, setDuration] = useState(60);
@@ -216,6 +231,27 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
   const [customer, setCustomer] = useState("");
   const [openedAt, setOpenedAt] = useState<number | null>(null);
   const [notice, setNotice] = useState("");
+  const [operationError, setOperationError] = useState("");
+  const [operationPending, setOperationPending] = useState(!isDemo);
+
+  const refreshRealStations = useCallback(async () => {
+    setStations(await getComputers());
+  }, []);
+
+  useEffect(() => {
+    if (isDemo) return;
+
+    const timeout = window.setTimeout(() => {
+      setOperationPending(true);
+      refreshRealStations()
+        .catch((error: unknown) => setOperationError(
+          error instanceof Error ? error.message : "Kompýuter maglumatlary alnyp bilinmedi.",
+        ))
+        .finally(() => setOperationPending(false));
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [isDemo, refreshRealStations]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -223,13 +259,15 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
         if (station.remainingSeconds === undefined || station.remainingSeconds <= 0) return station;
 
         const remainingSeconds = station.remainingSeconds - 1;
-        const status = remainingSeconds === 0 ? "locked" : remainingSeconds <= 600 ? "ending" : "occupied";
+        const status = remainingSeconds === 0
+          ? (isDemo ? "locked" : "ending")
+          : remainingSeconds <= 600 ? "ending" : "occupied";
         return { ...station, remainingSeconds, status };
       }));
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [isDemo]);
 
   const activeSessions = stations.filter(
     (station) => station.status === "occupied" || station.status === "ending",
@@ -252,10 +290,31 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
     setSessionOpen(true);
   }
 
-  function startSession() {
+  async function startSession() {
     const startedAt = Date.now();
     const station = stations.find((item) => item.id === sessionStationId);
     if (!station || station.status !== "available") return;
+
+    if (!isDemo) {
+      setOperationPending(true);
+      setOperationError("");
+      try {
+        await startSessionRequest({
+          computerId: station.id,
+          durationMinutes: duration,
+          customerName: customer.trim(),
+          paymentMethod,
+        });
+        await refreshRealStations();
+        setSessionOpen(false);
+        setNotice(`${station.name} üçin ${duration} minutlyk sessiýa PostgreSQL-da başlady.`);
+      } catch (error) {
+        setOperationError(error instanceof Error ? error.message : "Sessiýa başlap bolmady.");
+      } finally {
+        setOperationPending(false);
+      }
+      return;
+    }
 
     const charge = roundMoney((station.hourlyRate * duration) / 60);
     setStations((current) => current.map((item) => item.id === station.id ? {
@@ -272,7 +331,24 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
     setNotice(`${station.name} üçin ${duration} minutlyk sessiýa başlady.`);
   }
 
-  function addTime(stationId: string) {
+  async function addTime(stationId: string) {
+    const selected = stations.find((station) => station.id === stationId);
+    if (!isDemo) {
+      if (!selected?.sessionId) return;
+      setOperationPending(true);
+      setOperationError("");
+      try {
+        await extendSessionRequest(selected.sessionId, 30, selected.paymentMethod ?? "cash");
+        await refreshRealStations();
+        setNotice("Sessiýa 30 minut uzaldyldy; goşmaça töleg PostgreSQL-a ýazyldy.");
+      } catch (error) {
+        setOperationError(error instanceof Error ? error.message : "Sessiýa uzaldylyp bilinmedi.");
+      } finally {
+        setOperationPending(false);
+      }
+      return;
+    }
+
     setStations((current) => current.map((station) => station.id === stationId ? {
       ...station,
       status: "occupied",
@@ -282,8 +358,24 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
     setNotice("Sessiýa 30 minut uzaldyldy we töleg täzelendi.");
   }
 
-  function finishSession(stationId: string) {
+  async function finishSession(stationId: string) {
     const station = stations.find((item) => item.id === stationId);
+    if (!isDemo) {
+      if (!station?.sessionId) return;
+      setOperationPending(true);
+      setOperationError("");
+      try {
+        await completeSessionRequest(station.sessionId);
+        await refreshRealStations();
+        setNotice(`${station.name} sessiýasy tamamlandy we kompýuter boşadyldy.`);
+      } catch (error) {
+        setOperationError(error instanceof Error ? error.message : "Sessiýa tamamlanyp bilinmedi.");
+      } finally {
+        setOperationPending(false);
+      }
+      return;
+    }
+
     setStations((current) => current.map((item) => item.id === stationId ? {
       ...item,
       status: "available",
@@ -299,16 +391,16 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
 
   const statistics = [
     { label: "Ähli kompýuterler", value: String(stations.length), detail: "6 Standard · 4 VIP", icon: MonitorCog, color: "text-indigo-300", background: "bg-indigo-400/10" },
-    { label: "Aktiw sessiýalar", value: String(activeSessions), detail: "Real wagt demo taýmeri", icon: Clock3, color: "text-amber-300", background: "bg-amber-400/10" },
+    { label: "Aktiw sessiýalar", value: String(activeSessions), detail: isDemo ? "Real wagt demo taýmeri" : "PostgreSQL sessiýalary", icon: Clock3, color: "text-amber-300", background: "bg-amber-400/10" },
     { label: "Boş kompýuterler", value: String(availableStations.length), detail: "Täze sessiýa taýýar", icon: MonitorCheck, color: "text-emerald-300", background: "bg-emerald-400/10" },
-    { label: "Aktiw töleg", value: `${currentRevenue.toFixed(2)} TMT`, detail: "Demo sessiýalar boýunça", icon: Banknote, color: "text-sky-300", background: "bg-sky-400/10" },
+    { label: "Aktiw töleg", value: `${currentRevenue.toFixed(2)} TMT`, detail: isDemo ? "Demo sessiýalar boýunça" : "Database sessiýalary boýunça", icon: Banknote, color: "text-sky-300", background: "bg-sky-400/10" },
   ];
 
   return (
     <div className="flex flex-col gap-7">
       <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-medium text-indigo-300">Esasy panel · Stage 8</p>
+          <p className="text-sm font-medium text-indigo-300">Esasy panel · Stage 9</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em] text-white">Klubuň ýagdaýy</h1>
           <p className="mt-2 text-sm text-slate-400">10 kompýuteriň sessiýalaryny bir ekrandan dolandyryň.</p>
         </div>
@@ -329,21 +421,27 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
         </div>
       ) : null}
 
+      {operationError ? (
+        <div role="alert" className="rounded-xl border border-red-400/20 bg-red-400/[0.07] px-4 py-3 text-sm text-red-200">
+          {operationError}
+        </div>
+      ) : null}
+
       <section aria-label="Server ýagdaýy" className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:grid-cols-2 sm:p-5">
         <div className="flex items-center gap-3">
           <span className="grid size-10 place-items-center rounded-xl bg-emerald-400/10 text-emerald-300">
             <Server aria-hidden="true" className="size-4.5" />
           </span>
           <div>
-            <p className="text-sm font-medium text-slate-200">JWT autentifikasiýa</p>
-            <p className="mt-1 text-xs text-emerald-300">Admin + Kassir · Stage 8 taýýar</p>
+            <p className="text-sm font-medium text-slate-200">Sessiýa + töleg API</p>
+            <p className="mt-1 text-xs text-emerald-300">PostgreSQL amallary · Stage 9 taýýar</p>
           </div>
         </div>
         <div className="flex items-center gap-3 sm:justify-end">
           <span aria-hidden="true" className="size-2 rounded-full bg-emerald-400" />
           <div className="sm:text-right">
             <p className="text-sm text-slate-300">PostgreSQL + EF Core</p>
-            <p className="mt-1 text-xs text-emerald-300">6 tablisa · Stage 7 taýýar</p>
+            <p className="mt-1 text-xs text-emerald-300">6 tablisa · Stage 9 işleýär</p>
           </div>
         </div>
       </section>
@@ -368,12 +466,20 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
         })}
       </section>
 
-      <ComputerStationGrid
-        stations={stations}
-        onStartSession={openSession}
-        onAddTime={addTime}
-        onFinishSession={finishSession}
-      />
+      {stations.length > 0 ? (
+        <ComputerStationGrid
+          stations={stations}
+          onStartSession={openSession}
+          onAddTime={addTime}
+          onFinishSession={finishSession}
+          isDemo={isDemo}
+          operationPending={operationPending}
+        />
+      ) : (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-8 text-center text-sm text-slate-500">
+          {operationPending ? "PostgreSQL maglumatlary ýüklenýär..." : "Kompýuter maglumatlary tapylmady."}
+        </div>
+      )}
 
       <SessionSheet
         open={sessionOpen}
@@ -389,6 +495,8 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
         onCustomerChange={setCustomer}
         openedAt={openedAt}
         onConfirm={startSession}
+        isDemo={isDemo}
+        operationPending={operationPending}
       />
     </div>
   );
