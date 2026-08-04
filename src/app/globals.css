@@ -41,6 +41,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .operator { border-top: 1px solid var(--border); padding: 18px 8px 0; display: flex; gap: 9px; align-items: center; }
 .avatar { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--panel-2); color: #cfc5ff; font-size: 12px; font-weight: 700; }
 .operator strong { font-size: 12px; }
+.logout-icon { margin-left: auto; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); display: grid; place-items: center; cursor: pointer; color: var(--muted); }
 
 .main-content { min-width: 0; padding: 28px clamp(18px, 3.5vw, 48px) 48px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
@@ -50,6 +51,8 @@ h2 { font-size: 20px; letter-spacing: -.02em; }
 h3 { font-size: 18px; }
 .eyebrow { color: var(--muted); font-size: 10px; letter-spacing: .12em; font-weight: 700; margin-bottom: 5px; }
 .top-actions { display: flex; align-items: center; gap: 9px; }
+.role-badge { border-radius: 99px; padding: 7px 10px; font-size: 10px; font-weight: 700; background: rgba(124,92,255,.12); color: #cfc5ff; border: 1px solid rgba(124,92,255,.2); }
+.role-badge.cashier { color: var(--blue); background: rgba(85,167,255,.1); border-color: rgba(85,167,255,.2); }
 .search-box { width: 180px; height: 40px; border: 1px solid var(--border); background: var(--panel); border-radius: 10px; display: flex; align-items: center; gap: 8px; padding: 0 11px; color: var(--muted); }
 .search-box input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); }
 .icon-button { position: relative; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); display: grid; place-items: center; cursor: pointer; }
@@ -121,6 +124,47 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none !important;
 .details-actions { display: grid; gap: 8px; }
 .device-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 2px; }
 .device-actions button { height: 36px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel-2); cursor: pointer; display: grid; place-items: center; color: var(--muted); }
+.permission-note { color: var(--muted); font-size: 9px; line-height: 1.4; }
+
+.auth-loading { min-height: 100vh; display: grid; place-items: center; align-content: center; gap: 12px; color: var(--muted); }
+.spin { animation: spin 1s linear infinite; color: var(--brand-2); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(320px, 1.05fr) minmax(420px, .95fr); }
+.login-visual { position: relative; overflow: hidden; min-height: 100vh; padding: clamp(28px, 5vw, 68px); display: flex; flex-direction: column; justify-content: space-between; background: radial-gradient(circle at 30% 30%, rgba(124,92,255,.23), transparent 34%), radial-gradient(circle at 80% 75%, rgba(85,167,255,.12), transparent 26%), #090d16; border-right: 1px solid var(--border); }
+.login-visual::after { content: ""; position: absolute; width: 460px; height: 460px; border: 1px solid rgba(124,92,255,.13); border-radius: 50%; right: -180px; bottom: -180px; box-shadow: 0 0 0 55px rgba(124,92,255,.03), 0 0 0 110px rgba(124,92,255,.025); pointer-events: none; }
+.login-brand { display: flex; align-items: center; gap: 11px; position: relative; z-index: 1; }
+.login-brand > span:last-child, .login-feature span { display: grid; gap: 2px; }
+.login-brand small, .login-feature small { color: var(--muted); }
+.login-message { max-width: 590px; position: relative; z-index: 1; }
+.login-message h1 { max-width: 520px; font-size: clamp(42px, 6vw, 76px); line-height: .98; letter-spacing: -.055em; }
+.login-message > p:last-child { max-width: 520px; margin-top: 22px; color: var(--muted); font-size: clamp(14px, 1.5vw, 18px); line-height: 1.6; }
+.login-feature { max-width: 430px; position: relative; z-index: 1; border: 1px solid var(--border); background: rgba(15,20,32,.7); backdrop-filter: blur(8px); border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 11px; }
+.login-feature > svg { color: var(--green); }
+.login-feature strong { font-size: 12px; }
+.login-feature small { font-size: 10px; }
+.login-panel { min-height: 100vh; padding: 28px; display: grid; place-items: center; background: var(--bg); }
+.login-card { width: min(430px, 100%); }
+.login-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.login-lock { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 13px; color: var(--brand-2); background: rgba(124,92,255,.12); }
+.demo-warning { border: 1px solid rgba(255,189,69,.2); background: var(--amber-bg); color: var(--amber); padding: 11px 12px; border-radius: 11px; display: grid; gap: 3px; margin-bottom: 14px; font-size: 11px; line-height: 1.45; }
+.demo-warning span { color: #c9ad77; }
+.account-switcher { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 15px; }
+.account-option { border: 1px solid var(--border); background: var(--panel); color: var(--muted); border-radius: 11px; padding: 11px; display: flex; align-items: center; gap: 9px; text-align: left; cursor: pointer; }
+.account-option span { display: grid; gap: 2px; }
+.account-option strong { color: var(--text); font-size: 11px; }
+.account-option small { font-size: 9px; }
+.account-option.selected { border-color: var(--brand); background: rgba(124,92,255,.1); color: var(--brand-2); }
+.login-form { display: grid; gap: 13px; }
+.login-form label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; }
+.login-form input { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); padding: 0 12px; }
+.password-field { position: relative; display: block; }
+.password-field input { padding-right: 46px; }
+.password-field button { position: absolute; right: 5px; top: 5px; width: 34px; height: 34px; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.form-error { color: var(--red); font-size: 11px; }
+.login-submit { width: 100%; margin-top: 2px; }
+.demo-credentials { color: var(--muted); text-align: center; font-size: 9px; line-height: 1.7; margin-top: 15px; }
+.demo-credentials code { color: #cfc5ff; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(2,4,8,.76); backdrop-filter: blur(8px); padding: 18px; display: grid; place-items: center; }
 .modal { width: min(580px, 100%); border: 1px solid var(--border); background: #0d121d; border-radius: 18px; box-shadow: 0 30px 90px rgba(0,0,0,.5); padding: 22px; }
@@ -146,6 +190,10 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none !important;
   .operator { justify-content: center; padding-inline: 0; }
   .station-layout { grid-template-columns: 1fr; }
   .details-panel { position: static; }
+  .login-page { grid-template-columns: 1fr; }
+  .login-visual { min-height: 360px; }
+  .login-message h1 { font-size: clamp(36px, 9vw, 62px); }
+  .login-panel { min-height: auto; padding-block: 52px; }
 }
 @media (max-width: 700px) {
   .app-shell { display: block; }
@@ -159,6 +207,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none !important;
   .main-content { padding-top: 20px; }
   .topbar { align-items: flex-start; }
   .search-box { display: none; }
+  .role-badge { display: none; }
   .stats-grid { grid-template-columns: 1fr; }
   .computer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -171,4 +220,8 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none !important;
   .computer-card { min-height: 132px; }
   .bill { grid-template-columns: 1fr; }
   .modal-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .login-visual { min-height: 320px; padding: 24px; }
+  .login-feature { display: none; }
+  .login-panel { padding: 36px 18px; }
+  .account-switcher { grid-template-columns: 1fr; }
 }

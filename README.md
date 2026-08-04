@@ -12,8 +12,11 @@ The initial responsive dashboard is implemented with demo data. It includes:
 - A functional new-session form with duration and tariff calculation
 - Session extension and completion controls
 - Responsive desktop, tablet, and mobile layouts
+- Demo login with Administrator and Cashier roles
+- Role-based navigation and administrator-only device controls
+- Protected dashboard navigation and logout
 
-Backend persistence and real computer control are intentionally not included in this milestone.
+Authentication is currently a clearly labeled frontend demo stored in the browser. Backend persistence, secure server-side sessions, and real computer control are intentionally not included in this milestone.
 
 ## Technology
 
@@ -50,8 +53,9 @@ npm run build
 ## MVP roadmap
 
 1. ✅ Build the initial administrator dashboard
-2. Add authentication and staff roles
-3. Persist computers, sessions, tariffs, and payments
-4. Connect real-time status updates through SignalR
-5. Create the Windows agent and locked player screen
-6. Test on one computer, then deploy to ten computers
+2. ✅ Add the demo login experience and staff roles
+3. Replace demo login with secure server-side authentication
+4. Persist computers, sessions, tariffs, and payments
+5. Connect real-time status updates through SignalR
+6. Create the Windows agent and locked player screen
+7. Test on one computer, then deploy to ten computers

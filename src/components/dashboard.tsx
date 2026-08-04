@@ -7,6 +7,7 @@ import {
   Clock3,
   Gamepad2,
   LayoutDashboard,
+  LogOut,
   Monitor,
   MonitorCheck,
   Moon,
@@ -23,6 +24,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { initialComputers } from "@/data/computers";
 import type { ComputerStation, ComputerStatus } from "@/types/computer";
+import type { DemoUser } from "@/lib/demo-auth";
 
 const statusCopy: Record<ComputerStatus, string> = {
   available: "Boş",
@@ -37,7 +39,7 @@ const navigation = [
   { label: "Müşderiler", icon: Users },
   { label: "Oýunlar", icon: Gamepad2 },
   { label: "Satuw", icon: ShoppingBasket },
-  { label: "Hasabat", icon: ReceiptText },
+  { label: "Hasabat", icon: ReceiptText, adminOnly: true },
 ];
 
 function formatTime(totalSeconds?: number) {
@@ -48,7 +50,7 @@ function formatTime(totalSeconds?: number) {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-export function Dashboard() {
+export function Dashboard({ currentUser, onLogout }: { currentUser: DemoUser; onLogout: () => void }) {
   const [computers, setComputers] = useState(initialComputers);
   const [selectedId, setSelectedId] = useState("PC-01");
   const [isSessionOpen, setIsSessionOpen] = useState(false);
@@ -100,7 +102,7 @@ export function Dashboard() {
         </div>
 
         <nav aria-label="Esasy menýu" className="nav-list">
-          {navigation.map(({ label, icon: Icon, active }) => (
+          {navigation.filter((item) => !item.adminOnly || currentUser.role === "admin").map(({ label, icon: Icon, active }) => (
             <button className={active ? "nav-item active" : "nav-item"} key={label} type="button">
               <Icon size={18} /><span>{label}</span>
             </button>
@@ -108,8 +110,8 @@ export function Dashboard() {
         </nav>
 
         <div className="sidebar-footer">
-          <button className="nav-item" type="button"><Settings size={18} /><span>Sazlamalar</span></button>
-          <div className="operator"><span className="avatar">AK</span><span><strong>Admin Kassir</strong><small>Agşamky smena</small></span></div>
+          {currentUser.role === "admin" && <button className="nav-item" type="button"><Settings size={18} /><span>Sazlamalar</span></button>}
+          <div className="operator"><span className="avatar">{currentUser.role === "admin" ? "AD" : "KA"}</span><span><strong>{currentUser.name}</strong><small>{currentUser.role === "admin" ? "Administrator" : "Kassir"}</small></span><button className="logout-icon" type="button" onClick={onLogout} aria-label="Ulgamdan çyk"><LogOut size={16} /></button></div>
         </div>
       </aside>
 
@@ -117,6 +119,7 @@ export function Dashboard() {
         <header className="topbar">
           <div><p className="eyebrow">04.08.2026 · Sişenbe</p><h1>Dolandyryş paneli</h1></div>
           <div className="top-actions">
+            <span className={`role-badge ${currentUser.role}`}>{currentUser.role === "admin" ? "Administrator" : "Kassir"}</span>
             <label className="search-box"><Search size={17} /><span className="sr-only">Kompýuter gözle</span><input placeholder="PC gözle..." /></label>
             <button className="icon-button" type="button" aria-label="Bildirişler"><Bell size={18} /><span className="notification-dot" /></button>
             <button className="primary-button" type="button" onClick={() => setIsSessionOpen(true)}><Plus size={18} />Sessiya aç</button>
@@ -158,7 +161,8 @@ export function Dashboard() {
                     <button className="danger-button full" type="button" disabled={selectedComputer.status === "offline"} onClick={finishSession}><Power size={17} />Sessiýany tamamla</button>
                   </>
                 )}
-                <div className="device-actions"><button type="button" aria-label="Sleep"><Moon size={17} /></button><button type="button" aria-label="Restart"><RotateCcw size={17} /></button><button type="button" aria-label="Öçür"><Power size={17} /></button></div>
+                <div className="device-actions"><button type="button" aria-label="Sleep" disabled={currentUser.role !== "admin"}><Moon size={17} /></button><button type="button" aria-label="Restart" disabled={currentUser.role !== "admin"}><RotateCcw size={17} /></button><button type="button" aria-label="Öçür" disabled={currentUser.role !== "admin"}><Power size={17} /></button></div>
+                {currentUser.role !== "admin" && <p className="permission-note">Sleep, restart we öçürmek diňe administrator üçin.</p>}
               </div>
             </aside>
           </div>

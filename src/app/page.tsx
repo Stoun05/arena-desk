@@ -1,5 +1,5 @@
-import { Dashboard } from "@/components/dashboard";
+import { ProtectedDashboard } from "@/components/protected-dashboard";
 
 export default function Home() {
-  return <Dashboard />;
+  return <ProtectedDashboard />;
 }
