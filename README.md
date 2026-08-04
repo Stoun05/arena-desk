@@ -40,12 +40,14 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-The Stage 4 frontend demo includes:
+The Stage 5 frontend demo includes:
 
 - `/login` — administrator/cashier role selection and validated demo login form;
 - `/dashboard` — responsive sidebar, live-style summary cards, and 10 interactive computer station cards;
 - Standard/VIP tiers and Boş, Ulanylýar, Wagt gutarýar, Gulply, and Offline visual states;
 - a station detail panel with demo customer, remaining time, tariff, and current charge;
+- a new-session flow with duration, matching tariff, cash/card payment, automatic total, and ending-time calculation;
+- demo controls to add 30 minutes, finish a session, and update statistics in real time;
 - demo-only navigation while the backend authentication service is not yet available.
 
 ### Frontend structure
@@ -75,4 +77,4 @@ src/
 
 ## Status
 
-Stages 1–4 are complete: the MVP requirements, frontend foundation, demo login, responsive navigation, and interactive 10-computer dashboard are ready. Opening and managing timed sessions is the next milestone.
+Stages 1–5 are complete: the MVP requirements, frontend foundation, demo login, responsive navigation, interactive 10-computer dashboard, and frontend session-management flow are ready. Persisting sessions in the backend and database is the next milestone.

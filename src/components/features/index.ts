@@ -1,2 +1,2 @@
 export { LoginForm } from "./auth/login-form";
-export { ComputerStationGrid } from "./computers";
+export { ComputerDashboard, ComputerStationGrid } from "./computers";

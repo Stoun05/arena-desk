@@ -11,11 +11,22 @@ import {
   Plus,
   Power,
   UserRound,
+  WalletCards,
   WifiOff,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { ComputerStation, ComputerStatus } from "@/types/computer";
+
+function formatDuration(totalSeconds?: number) {
+  if (totalSeconds === undefined) return undefined;
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+}
 
 const statusStyles: Record<
   ComputerStatus,
@@ -112,9 +123,9 @@ function StationCard({
           </p>
         </div>
 
-        {station.remainingTime ? (
+        {station.remainingSeconds !== undefined ? (
           <div className="text-right">
-            <p className="font-mono text-sm font-medium text-slate-200">{station.remainingTime}</p>
+            <p className="font-mono text-sm font-medium text-slate-200">{formatDuration(station.remainingSeconds)}</p>
             <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-600">galan wagt</p>
           </div>
         ) : null}
@@ -145,7 +156,19 @@ function DetailRow({
   );
 }
 
-export function ComputerStationGrid({ stations }: { stations: ComputerStation[] }) {
+type ComputerStationGridProps = {
+  stations: ComputerStation[];
+  onStartSession: (stationId: string) => void;
+  onAddTime: (stationId: string) => void;
+  onFinishSession: (stationId: string) => void;
+};
+
+export function ComputerStationGrid({
+  stations,
+  onStartSession,
+  onAddTime,
+  onFinishSession,
+}: ComputerStationGridProps) {
   const [selectedId, setSelectedId] = useState(stations[1]?.id ?? stations[0]?.id);
   const selectedStation = stations.find((station) => station.id === selectedId) ?? stations[0];
   const style = statusStyles[selectedStation.status];
@@ -201,27 +224,41 @@ export function ComputerStationGrid({ stations }: { stations: ComputerStation[] 
           <DetailRow
             icon={Clock3}
             label={isActive ? "Galan wagt" : "Sessiýa wagty"}
-            value={selectedStation.remainingTime ?? "Sessiýa açylmady"}
+            value={formatDuration(selectedStation.remainingSeconds) ?? "Sessiýa açylmady"}
           />
           <DetailRow
             icon={Banknote}
             label="Häzirki töleg"
             value={selectedStation.currentCharge ? `${selectedStation.currentCharge} TMT` : "0 TMT"}
           />
+          <DetailRow
+            icon={WalletCards}
+            label="Töleg görnüşi"
+            value={selectedStation.paymentMethod === "card" ? "Kart" : selectedStation.paymentMethod === "cash" ? "Nagt" : "Bellige alynmady"}
+          />
         </div>
 
         <div className="mt-6 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <Button disabled className="bg-indigo-500 text-white">
+          <Button
+            disabled={!isActive && selectedStation.status !== "available"}
+            onClick={() => isActive ? onAddTime(selectedStation.id) : onStartSession(selectedStation.id)}
+            className="bg-indigo-500 text-white hover:bg-indigo-400"
+          >
             {isActive ? <Plus aria-hidden="true" data-icon="inline-start" /> : <Play aria-hidden="true" data-icon="inline-start" />}
             {isActive ? "+30 minut" : "Sessiýa aç"}
           </Button>
-          <Button disabled variant="outline" className="border-white/10 bg-white/[0.03] text-slate-400">
+          <Button
+            disabled={!isActive}
+            onClick={() => onFinishSession(selectedStation.id)}
+            variant="outline"
+            className="border-white/10 bg-white/[0.03] text-slate-300"
+          >
             <Power aria-hidden="true" data-icon="inline-start" />
-            {isActive ? "Tamamla" : "Dolandyr"}
+            Tamamla
           </Button>
         </div>
         <p className="mt-3 text-center text-[11px] leading-5 text-slate-600">
-          Sessiýa amallary 5-nji tapgyrda işjeňleşer.
+          Demo amallary diňe şu brauzer sessiýasynda saklanýar.
         </p>
       </aside>
     </section>
