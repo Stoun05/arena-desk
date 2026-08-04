@@ -1,2 +1,1 @@
-// Shared ArenaDesk domain types will be exported here.
-export {};
+export type { UserRole } from "./auth";

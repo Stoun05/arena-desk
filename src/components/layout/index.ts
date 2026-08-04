@@ -1,2 +1,1 @@
-// Shared application shells and navigation components will be exported here.
-export {};
+export { DashboardShell } from "./dashboard-shell";
