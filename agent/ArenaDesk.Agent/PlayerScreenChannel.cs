@@ -134,7 +134,7 @@ public sealed class PlayerScreenChannel(
             outBufferSize: 0,
             pipeSecurity,
             HandleInheritability.None,
-            PipeAccessRights.None);
+            (PipeAccessRights)0);
     }
 
     private bool IsValidAccessKey(string presentedKey)
