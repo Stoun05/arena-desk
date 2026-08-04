@@ -1,0 +1,90 @@
+name: Build Windows deployment package
+
+on:
+  pull_request:
+    paths:
+      - "agent/**"
+      - "player/**"
+      - "shared/**"
+      - "deployment/windows/**"
+      - ".github/workflows/windows-package.yml"
+  push:
+    branches: [main]
+    paths:
+      - "agent/**"
+      - "player/**"
+      - "shared/**"
+      - "deployment/windows/**"
+      - ".github/workflows/windows-package.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish self-contained Agent
+        shell: pwsh
+        run: >-
+          dotnet publish agent/ArenaDesk.Agent/ArenaDesk.Agent.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:DebugType=None
+          --output artifacts/ArenaDesk-Windows-x64/Agent
+
+      - name: Publish self-contained Player Screen
+        shell: pwsh
+        run: >-
+          dotnet publish player/ArenaDesk.Player/ArenaDesk.Player.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:DebugType=None
+          --output artifacts/ArenaDesk-Windows-x64/Player
+
+      - name: Assemble and validate deployment package
+        shell: pwsh
+        run: |
+          Copy-Item deployment/windows/install.ps1 artifacts/ArenaDesk-Windows-x64/
+          Copy-Item deployment/windows/verify.ps1 artifacts/ArenaDesk-Windows-x64/
+          Copy-Item deployment/windows/uninstall.ps1 artifacts/ArenaDesk-Windows-x64/
+          Copy-Item deployment/windows/README.md artifacts/ArenaDesk-Windows-x64/
+
+          $scripts = Get-ChildItem artifacts/ArenaDesk-Windows-x64/*.ps1
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List | Out-String | Write-Error
+            }
+          }
+
+          & .\artifacts\ArenaDesk-Windows-x64\install.ps1 `
+            -ApiBaseUrl 'https://api.example.com' `
+            -ComputerCode 'PC-01' `
+            -AgentId 'arena-pc-01' `
+            -AgentAccessKey 'ci-agent-access-key-at-least-32-characters' `
+            -PlayerAccessKey 'ci-player-access-key-at-least-32-characters' `
+            -ValidateOnly
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArenaDesk-Windows-x64
+          path: artifacts/ArenaDesk-Windows-x64/
+          if-no-files-found: error
+          retention-days: 30

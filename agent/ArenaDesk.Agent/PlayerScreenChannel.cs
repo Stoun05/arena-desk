@@ -1,5 +1,7 @@
 using System.IO.Pipes;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using ArenaDesk.Contracts;
@@ -61,12 +63,7 @@ public sealed class PlayerScreenChannel(
 
     private async Task AcceptPlayerAsync(CancellationToken cancellationToken)
     {
-        await using var pipe = new NamedPipeServerStream(
-            options.Value.PlayerPipeName,
-            PipeDirection.InOut,
-            1,
-            PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous);
+        await using var pipe = CreatePipe();
         logger.LogInformation("Waiting for Player Screen on local pipe {PipeName}.", options.Value.PlayerPipeName);
         await pipe.WaitForConnectionAsync(cancellationToken);
 
@@ -99,6 +96,45 @@ public sealed class PlayerScreenChannel(
             await writer.WriteLineAsync(JsonSerializer.Serialize(state).AsMemory(), cancellationToken);
             await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
         }
+    }
+
+    private NamedPipeServerStream CreatePipe()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return new NamedPipeServerStream(
+                options.Value.PlayerPipeName,
+                PipeDirection.InOut,
+                1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+        }
+
+        var pipeSecurity = new PipeSecurity();
+        pipeSecurity.AddAccessRule(new PipeAccessRule(
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, domainSid: null),
+            PipeAccessRights.FullControl,
+            AccessControlType.Allow));
+        pipeSecurity.AddAccessRule(new PipeAccessRule(
+            new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, domainSid: null),
+            PipeAccessRights.FullControl,
+            AccessControlType.Allow));
+        pipeSecurity.AddAccessRule(new PipeAccessRule(
+            new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, domainSid: null),
+            PipeAccessRights.ReadWrite,
+            AccessControlType.Allow));
+
+        return NamedPipeServerStreamAcl.Create(
+            options.Value.PlayerPipeName,
+            PipeDirection.InOut,
+            1,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous,
+            inBufferSize: 0,
+            outBufferSize: 0,
+            pipeSecurity,
+            HandleInheritability.None,
+            PipeAccessRights.None);
     }
 
     private bool IsValidAccessKey(string presentedKey)
