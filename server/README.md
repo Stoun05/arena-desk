@@ -1,6 +1,6 @@
 # ArenaDesk server
 
-Stage 9 connects authenticated computer, session, tariff, and payment operations to PostgreSQL. Starting and extending a session records its payment in the same database transaction; completing it releases the computer.
+Stage 10 adds an authenticated SignalR hub to the PostgreSQL session operations. Starting, extending, or completing a session commits its database transaction first and then broadcasts a computer-state change to every connected dashboard.
 
 ## Requirements
 
@@ -31,6 +31,7 @@ The local server listens on `http://localhost:5080`.
 - `POST /api/v1/sessions` — atomically start a session and record its payment
 - `POST /api/v1/sessions/{id}/extend` — atomically add time and another payment
 - `POST /api/v1/sessions/{id}/complete` — complete the session and release the computer
+- `/hubs/operations` — authenticated SignalR hub for computer-state changes
 
 ## Configuration
 

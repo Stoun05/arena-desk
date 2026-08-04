@@ -5,6 +5,7 @@ using ArenaDesk.Api.Domain;
 using ArenaDesk.Api.Endpoints;
 using ArenaDesk.Api.Options;
 using ArenaDesk.Api.Persistence;
+using ArenaDesk.Api.Realtime;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -21,6 +22,7 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 builder.Services.AddProblemDetails();
+builder.Services.AddSignalR();
 
 var connectionString = builder.Configuration.GetConnectionString("ArenaDesk");
 if (string.IsNullOrWhiteSpace(connectionString))
@@ -71,6 +73,20 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
             ClockSkew = TimeSpan.FromMinutes(1),
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var requestPath = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && requestPath.StartsWithSegments("/hubs/operations"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            },
+        };
     });
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("AdministratorOnly", policy =>
@@ -102,7 +118,8 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -168,6 +185,8 @@ app.MapSystemEndpoints();
 app.MapAuthEndpoints();
 app.MapAdminEndpoints();
 app.MapOperationalEndpoints();
+app.MapHub<OperationsHub>("/hubs/operations")
+    .RequireAuthorization();
 
 await DatabaseInitializer.InitializeAsync(app.Services);
 

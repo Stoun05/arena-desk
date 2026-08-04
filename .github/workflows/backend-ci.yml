@@ -94,6 +94,9 @@ jobs:
             cat /tmp/arena-api.log
             exit 1
           fi
+          curl --fail --silent --show-error \
+            http://127.0.0.1:5080/api/v1/system/status | \
+            jq --exit-status '.stage == 10 and .database == "available"'
 
           admin_token=$(curl --fail --silent --show-error \
             --header "Content-Type: application/json" \
@@ -114,6 +117,16 @@ jobs:
             --header "Authorization: Bearer $cashier_token" \
             http://127.0.0.1:5080/api/v1/admin/users)
           test "$cashier_status" = "403"
+
+          printf 'Checking authenticated SignalR negotiation...\n'
+          anonymous_hub_status=$(curl --silent --output /tmp/anonymous-hub-response.json --write-out '%{http_code}' \
+            --request POST \
+            'http://127.0.0.1:5080/hubs/operations/negotiate?negotiateVersion=1')
+          test "$anonymous_hub_status" = "401"
+          hub_negotiate=$(curl --fail --silent --show-error \
+            --request POST \
+            "http://127.0.0.1:5080/hubs/operations/negotiate?negotiateVersion=1&access_token=$cashier_token")
+          jq --exit-status '.connectionToken != null and (.availableTransports | any(.transport == "WebSockets"))' <<< "$hub_negotiate"
 
           printf 'Checking computer list...\n'
           computer_id=$(curl --fail --silent --show-error \

@@ -9,6 +9,7 @@ import {
   MonitorCheck,
   MonitorCog,
   Plus,
+  Radio,
   ReceiptText,
   Server,
   UserRound,
@@ -34,10 +35,12 @@ import {
 import type { ComputerStation, PaymentMethod } from "@/types/computer";
 import {
   completeSession as completeSessionRequest,
+  connectOperationsRealtime,
   extendSession as extendSessionRequest,
   getComputers,
   startSession as startSessionRequest,
 } from "@/services";
+import type { RealtimeConnectionState } from "@/services";
 
 import { ComputerStationGrid } from "./computer-station-grid";
 
@@ -233,6 +236,10 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
   const [notice, setNotice] = useState("");
   const [operationError, setOperationError] = useState("");
   const [operationPending, setOperationPending] = useState(!isDemo);
+  const [realtimeState, setRealtimeState] = useState<RealtimeConnectionState | "demo">(
+    isDemo ? "demo" : "connecting",
+  );
+  const [lastRealtimeUpdate, setLastRealtimeUpdate] = useState("");
 
   const refreshRealStations = useCallback(async () => {
     setStations(await getComputers());
@@ -251,6 +258,28 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
     }, 0);
 
     return () => window.clearTimeout(timeout);
+  }, [isDemo, refreshRealStations]);
+
+  useEffect(() => {
+    if (isDemo) return;
+
+    return connectOperationsRealtime({
+      onChange: (event) => {
+        void refreshRealStations()
+          .then(() => {
+            setOperationError("");
+            setLastRealtimeUpdate(new Date(event.occurredAtUtc).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }));
+          })
+          .catch((error: unknown) => setOperationError(
+            error instanceof Error ? error.message : "Real-time maglumat täzelenmedi.",
+          ));
+      },
+      onStateChange: setRealtimeState,
+    });
   }, [isDemo, refreshRealStations]);
 
   useEffect(() => {
@@ -395,12 +424,19 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
     { label: "Boş kompýuterler", value: String(availableStations.length), detail: "Täze sessiýa taýýar", icon: MonitorCheck, color: "text-emerald-300", background: "bg-emerald-400/10" },
     { label: "Aktiw töleg", value: `${currentRevenue.toFixed(2)} TMT`, detail: isDemo ? "Demo sessiýalar boýunça" : "Database sessiýalary boýunça", icon: Banknote, color: "text-sky-300", background: "bg-sky-400/10" },
   ];
+  const realtimeStatus = {
+    demo: { label: "Demo görkezmesi", color: "text-indigo-300", dot: "bg-indigo-400" },
+    connecting: { label: "Baglanýar...", color: "text-amber-300", dot: "bg-amber-400" },
+    connected: { label: lastRealtimeUpdate ? `Onlaýn · ${lastRealtimeUpdate}` : "Onlaýn", color: "text-emerald-300", dot: "bg-emerald-400" },
+    reconnecting: { label: "Täzeden baglanýar...", color: "text-amber-300", dot: "bg-amber-400" },
+    offline: { label: "Baglanyşyk ýok", color: "text-red-300", dot: "bg-red-400" },
+  }[realtimeState];
 
   return (
     <div className="flex flex-col gap-7">
       <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-medium text-indigo-300">Esasy panel · Stage 9</p>
+          <p className="text-sm font-medium text-indigo-300">Esasy panel · Stage 10</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em] text-white">Klubuň ýagdaýy</h1>
           <p className="mt-2 text-sm text-slate-400">10 kompýuteriň sessiýalaryny bir ekrandan dolandyryň.</p>
         </div>
@@ -427,21 +463,33 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
         </div>
       ) : null}
 
-      <section aria-label="Server ýagdaýy" className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:grid-cols-2 sm:p-5">
+      <section aria-label="Server ýagdaýy" className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:grid-cols-3 sm:p-5">
         <div className="flex items-center gap-3">
           <span className="grid size-10 place-items-center rounded-xl bg-emerald-400/10 text-emerald-300">
             <Server aria-hidden="true" className="size-4.5" />
           </span>
           <div>
             <p className="text-sm font-medium text-slate-200">Sessiýa + töleg API</p>
-            <p className="mt-1 text-xs text-emerald-300">PostgreSQL amallary · Stage 9 taýýar</p>
+            <p className="mt-1 text-xs text-emerald-300">Transaction amallary taýýar</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 sm:justify-center">
+          <span className="grid size-10 place-items-center rounded-xl bg-indigo-400/10 text-indigo-300">
+            <Radio aria-hidden="true" className="size-4.5" />
+          </span>
+          <div>
+            <p className="text-sm font-medium text-slate-200">SignalR real-time</p>
+            <p className={`mt-1 flex items-center gap-2 text-xs ${realtimeStatus.color}`}>
+              <span aria-hidden="true" className={`size-2 rounded-full ${realtimeStatus.dot}`} />
+              {realtimeStatus.label}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3 sm:justify-end">
           <span aria-hidden="true" className="size-2 rounded-full bg-emerald-400" />
           <div className="sm:text-right">
             <p className="text-sm text-slate-300">PostgreSQL + EF Core</p>
-            <p className="mt-1 text-xs text-emerald-300">6 tablisa · Stage 9 işleýär</p>
+            <p className="mt-1 text-xs text-emerald-300">6 tablisa · Stage 10 işleýär</p>
           </div>
         </div>
       </section>

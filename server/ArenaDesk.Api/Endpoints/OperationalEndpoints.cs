@@ -4,7 +4,9 @@ using System.Text.Json;
 using ArenaDesk.Api.Contracts;
 using ArenaDesk.Api.Domain;
 using ArenaDesk.Api.Persistence;
+using ArenaDesk.Api.Realtime;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 
 namespace ArenaDesk.Api.Endpoints;
 
@@ -123,6 +125,8 @@ public static class OperationalEndpoints
         ClaimsPrincipal principal,
         HttpContext context,
         ArenaDeskDbContext database,
+        IHubContext<OperationsHub> hubContext,
+        ILogger<OperationsHub> hubLogger,
         CancellationToken cancellationToken)
     {
         if (!IsValidDuration(request.DurationMinutes, 15, 720) || !TryParsePaymentMethod(request.PaymentMethod, out var paymentMethod))
@@ -131,10 +135,12 @@ public static class OperationalEndpoints
         }
 
         var cashierId = GetUserId(principal);
+        Guid? changedComputerId = null;
         try
         {
-            return await ExecuteInTransactionAsync(database, cancellationToken, async () =>
+            var result = await ExecuteInTransactionAsync(database, cancellationToken, async () =>
             {
+                changedComputerId = null;
                 var computer = await database.Computers.SingleOrDefaultAsync(item => item.Id == request.ComputerId, cancellationToken);
                 if (computer is null)
                 {
@@ -191,9 +197,16 @@ public static class OperationalEndpoints
                     new { computerId = computer.Id, request.DurationMinutes, price, paymentMethod = request.PaymentMethod }));
 
                 await database.SaveChangesAsync(cancellationToken);
+                changedComputerId = computer.Id;
                 var response = ToResponse(session);
                 return Results.Created($"/api/v1/sessions/{session.Id}", response);
             });
+            if (changedComputerId is Guid computerId)
+            {
+                await PublishComputerChangeAsync(hubContext, hubLogger, computerId, "session-started", cancellationToken);
+            }
+
+            return result;
         }
         catch (DbUpdateException)
         {
@@ -207,6 +220,8 @@ public static class OperationalEndpoints
         ClaimsPrincipal principal,
         HttpContext context,
         ArenaDeskDbContext database,
+        IHubContext<OperationsHub> hubContext,
+        ILogger<OperationsHub> hubLogger,
         CancellationToken cancellationToken)
     {
         if (!IsValidDuration(request.DurationMinutes, 15, 360) || !TryParsePaymentMethod(request.PaymentMethod, out var paymentMethod))
@@ -215,8 +230,10 @@ public static class OperationalEndpoints
         }
 
         var cashierId = GetUserId(principal);
-        return await ExecuteInTransactionAsync(database, cancellationToken, async () =>
+        Guid? changedComputerId = null;
+        var result = await ExecuteInTransactionAsync(database, cancellationToken, async () =>
         {
+            changedComputerId = null;
             var session = await database.Sessions
                 .Include(item => item.Computer)
                 .SingleOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
@@ -251,8 +268,15 @@ public static class OperationalEndpoints
                 new { request.DurationMinutes, extraPrice, paymentMethod = request.PaymentMethod }));
 
             await database.SaveChangesAsync(cancellationToken);
+            changedComputerId = session.ComputerId;
             return Results.Ok(ToResponse(session));
         });
+        if (changedComputerId is Guid computerId)
+        {
+            await PublishComputerChangeAsync(hubContext, hubLogger, computerId, "session-extended", cancellationToken);
+        }
+
+        return result;
     }
 
     private static async Task<IResult> CompleteSessionAsync(
@@ -260,11 +284,15 @@ public static class OperationalEndpoints
         ClaimsPrincipal principal,
         HttpContext context,
         ArenaDeskDbContext database,
+        IHubContext<OperationsHub> hubContext,
+        ILogger<OperationsHub> hubLogger,
         CancellationToken cancellationToken)
     {
         var cashierId = GetUserId(principal);
-        return await ExecuteInTransactionAsync(database, cancellationToken, async () =>
+        Guid? changedComputerId = null;
+        var result = await ExecuteInTransactionAsync(database, cancellationToken, async () =>
         {
+            changedComputerId = null;
             var session = await database.Sessions
                 .Include(item => item.Computer)
                 .SingleOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
@@ -285,8 +313,38 @@ public static class OperationalEndpoints
             session.Computer.UpdatedAtUtc = now;
             database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Completed", "Session", session.Id, context));
             await database.SaveChangesAsync(cancellationToken);
+            changedComputerId = session.ComputerId;
             return Results.Ok(ToResponse(session));
         });
+        if (changedComputerId is Guid computerId)
+        {
+            await PublishComputerChangeAsync(hubContext, hubLogger, computerId, "session-completed", cancellationToken);
+        }
+
+        return result;
+    }
+
+    private static async Task PublishComputerChangeAsync(
+        IHubContext<OperationsHub> hubContext,
+        ILogger<OperationsHub> logger,
+        Guid computerId,
+        string action,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await hubContext.Clients.All.SendAsync(
+                OperationsHub.ComputerStateChangedEvent,
+                new ComputerStateChangedResponse(computerId, action, DateTimeOffset.UtcNow),
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Session operation committed but SignalR notification failed for computer {ComputerId}.",
+                computerId);
+        }
     }
 
     private static Task<IResult> ExecuteInTransactionAsync(
