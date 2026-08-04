@@ -1,0 +1,14 @@
+@ArenaDesk_Api_HostAddress = http://localhost:5080
+
+GET {{ArenaDesk_Api_HostAddress}}/
+Accept: application/json
+
+###
+
+GET {{ArenaDesk_Api_HostAddress}}/api/v1/system/status
+Accept: application/json
+
+###
+
+GET {{ArenaDesk_Api_HostAddress}}/health/live
+Accept: text/plain

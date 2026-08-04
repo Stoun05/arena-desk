@@ -1,0 +1,34 @@
+name: Validate ASP.NET Core backend
+
+on:
+  pull_request:
+    paths:
+      - "server/**"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/backend-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore server/ArenaDesk.Api/ArenaDesk.Api.csproj
+
+      - name: Build
+        run: dotnet build server/ArenaDesk.Api/ArenaDesk.Api.csproj --configuration Release --no-restore --warnaserror
