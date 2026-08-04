@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: arena_desk
+      POSTGRES_USER: arena_desk
+      POSTGRES_PASSWORD: ${ARENA_DB_PASSWORD:?Set ARENA_DB_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arena_desk -d arena_desk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - arena_postgres_data:/var/lib/postgresql/data
+      - ./server/database/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+
+  api:
+    build:
+      context: .
+      dockerfile: server/ArenaDesk.Api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__ArenaDesk: Host=postgres;Port=5432;Database=arena_desk;Username=arena_desk;Password=${ARENA_DB_PASSWORD:?Set ARENA_DB_PASSWORD in .env}
+      ArenaDesk__ClubName: ArenaDesk Demo Club
+      ArenaDesk__ComputerLimit: 10
+      Cors__AllowedOrigins__0: http://localhost:3000
+    ports:
+      - "5080:8080"
+
+volumes:
+  arena_postgres_data:
