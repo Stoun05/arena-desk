@@ -22,9 +22,8 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { initialComputers } from "@/data/computers";
 import type { ComputerStation, ComputerStatus } from "@/types/computer";
-import type { DemoUser } from "@/lib/demo-auth";
+import { extendSession as extendSessionRequest, finishSession as finishSessionRequest, startSession as startSessionRequest, type AuthUser, type Tariff } from "@/lib/api-client";
 
 const statusCopy: Record<ComputerStatus, string> = {
   available: "Boş",
@@ -50,9 +49,9 @@ function formatTime(totalSeconds?: number) {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-export function Dashboard({ currentUser, onLogout }: { currentUser: DemoUser; onLogout: () => void }) {
-  const [computers, setComputers] = useState(initialComputers);
-  const [selectedId, setSelectedId] = useState("PC-01");
+export function Dashboard({ currentUser, initialStations, tariffs, onLogout }: { currentUser: AuthUser; initialStations: ComputerStation[]; tariffs: Tariff[]; onLogout: () => Promise<void> }) {
+  const [computers, setComputers] = useState(initialStations);
+  const [selectedId, setSelectedId] = useState(initialStations[0]?.id ?? "");
   const [isSessionOpen, setIsSessionOpen] = useState(false);
   const [notice, setNotice] = useState("Demo maglumatlary — backend indiki tapgyrda birikdiriler.");
 
@@ -77,20 +76,30 @@ export function Dashboard({ currentUser, onLogout }: { currentUser: DemoUser; on
   const activeCount = computers.filter((computer) => ["active", "warning"].includes(computer.status)).length;
   const availableCount = computers.filter((computer) => computer.status === "available").length;
 
-  const finishSession = () => {
-    if (!selectedComputer || !["active", "warning"].includes(selectedComputer.status)) return;
+  const finishSession = async () => {
+    if (!selectedComputer?.sessionId || !["active", "warning"].includes(selectedComputer.status)) return;
+    try {
+      await finishSessionRequest(selectedComputer.sessionId);
     setComputers((current) => current.map((computer) => computer.id === selectedComputer.id
-      ? { id: computer.id, zone: computer.zone, status: "available" }
+      ? { id: computer.id, databaseId: computer.databaseId, zone: computer.zone, status: "available" }
       : computer));
     setNotice(`${selectedComputer.id} sessiýasy tamamlandy we kompýuter gulplandy.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Sessiýany tamamlap bolmady.");
+    }
   };
 
-  const extendSession = () => {
-    if (!selectedComputer || !["active", "warning"].includes(selectedComputer.status)) return;
+  const extendSession = async () => {
+    if (!selectedComputer?.sessionId || !["active", "warning"].includes(selectedComputer.status)) return;
+    try {
+      const result = await extendSessionRequest(selectedComputer.sessionId, 30);
     setComputers((current) => current.map((computer) => computer.id === selectedComputer.id
-      ? { ...computer, remainingSeconds: (computer.remainingSeconds ?? 0) + 1800, status: "active" }
+      ? { ...computer, remainingSeconds: Math.max(0, Math.floor((new Date(result.endsAt).getTime() - Date.now()) / 1000)), sessionPrice: result.totalPrice, status: "active" }
       : computer));
     setNotice(`${selectedComputer.id} üçin 30 minut goşuldy.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Wagt goşup bolmady.");
+    }
   };
 
   return (
@@ -169,8 +178,11 @@ export function Dashboard({ currentUser, onLogout }: { currentUser: DemoUser; on
         </section>
       </main>
 
-      {isSessionOpen && <SessionModal computers={computers} preferredId={selectedComputer.status === "available" ? selectedComputer.id : undefined} onClose={() => setIsSessionOpen(false)} onStart={(session) => {
-        setComputers((current) => current.map((computer) => computer.id === session.computerId ? { ...computer, status: "active", customer: session.customer, remainingSeconds: session.minutes * 60, sessionPrice: session.total } : computer));
+      {isSessionOpen && <SessionModal computers={computers} tariffs={tariffs} preferredId={selectedComputer.status === "available" ? selectedComputer.id : undefined} onClose={() => setIsSessionOpen(false)} onStart={async (session) => {
+        const computer = computers.find((item) => item.id === session.computerId);
+        if (!computer) throw new Error("Kompýuter tapylmady.");
+        const result = await startSessionRequest({ computerId: computer.databaseId, tariffId: session.tariffId, customerName: session.customer, minutes: session.minutes });
+        setComputers((current) => current.map((item) => item.id === session.computerId ? { ...item, sessionId: result.id, status: "active", customer: session.customer, remainingSeconds: session.minutes * 60, sessionPrice: result.totalPrice } : item));
         setSelectedId(session.computerId);
         setNotice(`${session.computerId} üçin ${session.minutes} minutlyk sessiýa başlady.`);
         setIsSessionOpen(false);
@@ -193,29 +205,45 @@ function ComputerCard({ computer, selected, onSelect }: { computer: ComputerStat
   );
 }
 
-type NewSession = { computerId: string; customer: string; minutes: number; total: number };
+type NewSession = { computerId: string; tariffId: string; customer: string; minutes: number; total: number };
 
-function SessionModal({ computers, preferredId, onClose, onStart }: { computers: ComputerStation[]; preferredId?: string; onClose: () => void; onStart: (session: NewSession) => void }) {
+function SessionModal({ computers, tariffs, preferredId, onClose, onStart }: { computers: ComputerStation[]; tariffs: Tariff[]; preferredId?: string; onClose: () => void; onStart: (session: NewSession) => Promise<void> }) {
   const availableComputers = computers.filter((computer) => computer.status === "available");
   const [computerId, setComputerId] = useState(preferredId ?? availableComputers[0]?.id ?? "");
   const [customer, setCustomer] = useState("Täze müşderi");
   const [minutes, setMinutes] = useState(60);
-  const [hourlyRate, setHourlyRate] = useState(15);
+  const [tariffId, setTariffId] = useState(tariffs[0]?.id ?? "");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const selectedTariff = tariffs.find((tariff) => tariff.id === tariffId);
+  const hourlyRate = selectedTariff?.hourlyRate ?? 0;
   const total = useMemo(() => (minutes / 60) * hourlyRate, [minutes, hourlyRate]);
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="modal" role="dialog" aria-modal="true" aria-labelledby="session-title">
         <div className="modal-head"><div><p className="eyebrow">TÄZE SESSIÝA</p><h2 id="session-title">Oýun wagtyny aç</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="Penjiräni ýap"><X size={18} /></button></div>
-        <form onSubmit={(event) => { event.preventDefault(); if (computerId && customer.trim()) onStart({ computerId, customer: customer.trim(), minutes, total }); }}>
+        <form onSubmit={async (event) => {
+          event.preventDefault();
+          if (!computerId || !tariffId || !customer.trim()) return;
+          setSubmitError("");
+          setIsSubmitting(true);
+          try {
+            await onStart({ computerId, tariffId, customer: customer.trim(), minutes, total });
+          } catch (error) {
+            setSubmitError(error instanceof Error ? error.message : "Sessiýany başlap bolmady.");
+            setIsSubmitting(false);
+          }
+        }}>
           <div className="form-grid">
             <label>Kompýuter<select value={computerId} onChange={(event) => setComputerId(event.target.value)} required>{availableComputers.map((computer) => <option key={computer.id}>{computer.id}</option>)}</select></label>
             <label>Müşderi<input value={customer} onChange={(event) => setCustomer(event.target.value)} required /></label>
             <label>Wagt<select value={minutes} onChange={(event) => setMinutes(Number(event.target.value))}><option value={30}>30 minut</option><option value={60}>1 sagat</option><option value={120}>2 sagat</option><option value={180}>3 sagat</option></select></label>
-            <label>Tarif<select value={hourlyRate} onChange={(event) => setHourlyRate(Number(event.target.value))}><option value={12}>Gündiz · 12 TMT/sag</option><option value={15}>Standart · 15 TMT/sag</option><option value={20}>VIP · 20 TMT/sag</option></select></label>
+            <label>Tarif<select value={tariffId} onChange={(event) => setTariffId(event.target.value)}>{tariffs.map((tariff) => <option value={tariff.id} key={tariff.id}>{tariff.name} · {tariff.hourlyRate} TMT/sag</option>)}</select></label>
           </div>
+          {submitError && <p className="form-error" role="alert">{submitError}</p>}
           <div className="bill"><span><small>Kompýuter</small><strong>{computerId || "Boş PC ýok"}</strong></span><span><small>Dowamlylygy</small><strong>{minutes < 60 ? `${minutes} minut` : `${minutes / 60} sagat`}</strong></span><span><small>Jemi</small><strong className="bill-total">{total} TMT</strong></span></div>
-          <div className="modal-actions"><button className="secondary-button" type="button" onClick={onClose}>Ýatyr</button><button className="primary-button" type="submit" disabled={!computerId}><Gamepad2 size={18} />Sessiýany başlat</button></div>
+          <div className="modal-actions"><button className="secondary-button" type="button" onClick={onClose}>Ýatyr</button><button className="primary-button" type="submit" disabled={!computerId || !tariffId || isSubmitting}><Gamepad2 size={18} />{isSubmitting ? "Başladylýar..." : "Sessiýany başlat"}</button></div>
         </form>
       </section>
     </div>

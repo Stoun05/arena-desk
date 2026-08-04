@@ -12,11 +12,13 @@ The initial responsive dashboard is implemented with demo data. It includes:
 - A functional new-session form with duration and tariff calculation
 - Session extension and completion controls
 - Responsive desktop, tablet, and mobile layouts
-- Demo login with Administrator and Cashier roles
+- ASP.NET Core login with Administrator and Cashier roles
 - Role-based navigation and administrator-only device controls
 - Protected dashboard navigation and logout
+- PostgreSQL persistence for users, computers, tariffs, and sessions
+- HttpOnly-cookie JWT authentication
 
-Authentication is currently a clearly labeled frontend demo stored in the browser. Backend persistence, secure server-side sessions, and real computer control are intentionally not included in this milestone.
+Authentication and the main session workflow are connected to the ASP.NET Core API. Real Windows computer control is intentionally not included in this milestone.
 
 ## Technology
 
@@ -25,8 +27,18 @@ Authentication is currently a clearly labeled frontend demo stored in the browse
 - TypeScript
 - Tailwind CSS 4
 - Lucide icons
+- ASP.NET Core 10
+- Entity Framework Core and PostgreSQL
 
 ## Run locally
+
+Copy `.env.example` to `.env`, replace every placeholder secret, then start PostgreSQL and the API:
+
+```bash
+docker compose up --build
+```
+
+In another terminal, start the dashboard:
 
 ```bash
 npm install
@@ -40,7 +52,10 @@ Open [http://localhost:3000](http://localhost:3000).
 ```bash
 npm run lint
 npm run build
+dotnet build server/ArenaDesk.Api/ArenaDesk.Api.csproj
 ```
+
+API health check: `http://localhost:8080/health`.
 
 ## Planned architecture
 
@@ -53,9 +68,9 @@ npm run build
 ## MVP roadmap
 
 1. ✅ Build the initial administrator dashboard
-2. ✅ Add the demo login experience and staff roles
-3. Replace demo login with secure server-side authentication
-4. Persist computers, sessions, tariffs, and payments
+2. ✅ Add the login experience and staff roles
+3. ✅ Add secure server-side authentication
+4. ✅ Persist users, computers, sessions, and tariffs
 5. Connect real-time status updates through SignalR
 6. Create the Windows agent and locked player screen
 7. Test on one computer, then deploy to ten computers

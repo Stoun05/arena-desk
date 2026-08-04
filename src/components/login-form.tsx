@@ -2,24 +2,25 @@
 
 import { Eye, EyeOff, Gamepad2, LockKeyhole, ShieldCheck, UserRoundCog } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { authenticateDemoUser, demoAccounts, loadDemoSession, saveDemoSession } from "@/lib/demo-auth";
+import { useState } from "react";
+import { login } from "@/lib/api-client";
+
+const accountPresets = [
+  { email: "admin@arena.local", label: "Administrator", detail: "Ähli mümkinçilikler" },
+  { email: "cashier@arena.local", label: "Kassir", detail: "Gündelik işler" },
+];
 
 export function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState(demoAccounts[0].email);
-  const [password, setPassword] = useState(demoAccounts[0].password);
+  const [email, setEmail] = useState(accountPresets[0].email);
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (loadDemoSession()) router.replace("/");
-  }, [router]);
-
   const selectAccount = (index: number) => {
-    setEmail(demoAccounts[index].email);
-    setPassword(demoAccounts[index].password);
+    setEmail(accountPresets[index].email);
+    setPassword("");
     setError("");
   };
 
@@ -39,25 +40,24 @@ export function LoginForm() {
         <div className="login-card">
           <div className="login-card-head"><span className="login-lock"><LockKeyhole size={21} /></span><div><p className="eyebrow">HOŞ GELDIŇIZ</p><h2>Ulgama giriş</h2></div></div>
 
-          <div className="demo-warning"><strong>Demo login</strong><span>Bu diňe frontend synagydyr. Hakyky autentifikasiýa backend bilen indiki tapgyrda goşular.</span></div>
+          <div className="demo-warning"><strong>Howpsuz giriş</strong><span>Parol serverde hash görnüşinde barlanýar. Sessiya HttpOnly cookie arkaly saklanýar.</span></div>
 
           <div className="account-switcher" aria-label="Demo hasaby saýla">
-            <button type="button" className={email === demoAccounts[0].email ? "account-option selected" : "account-option"} onClick={() => selectAccount(0)}><UserRoundCog size={17} /><span><strong>Administrator</strong><small>Ähli mümkinçilikler</small></span></button>
-            <button type="button" className={email === demoAccounts[1].email ? "account-option selected" : "account-option"} onClick={() => selectAccount(1)}><Gamepad2 size={17} /><span><strong>Kassir</strong><small>Gündelik işler</small></span></button>
+            <button type="button" className={email === accountPresets[0].email ? "account-option selected" : "account-option"} onClick={() => selectAccount(0)}><UserRoundCog size={17} /><span><strong>{accountPresets[0].label}</strong><small>{accountPresets[0].detail}</small></span></button>
+            <button type="button" className={email === accountPresets[1].email ? "account-option selected" : "account-option"} onClick={() => selectAccount(1)}><Gamepad2 size={17} /><span><strong>{accountPresets[1].label}</strong><small>{accountPresets[1].detail}</small></span></button>
           </div>
 
-          <form className="login-form" onSubmit={(event) => {
+          <form className="login-form" onSubmit={async (event) => {
             event.preventDefault();
             setError("");
             setIsSubmitting(true);
-            const user = authenticateDemoUser(email, password);
-            if (!user) {
-              setError("Email ýa-da parol nädogry.");
+            try {
+              await login(email, password);
+              router.replace("/");
+            } catch (loginError) {
+              setError(loginError instanceof Error ? loginError.message : "Servere birigip bolmady.");
               setIsSubmitting(false);
-              return;
             }
-            saveDemoSession(user);
-            router.replace("/");
           }}>
             <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required /></label>
             <label>Parol<span className="password-field"><input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" minLength={6} required /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Paroly gizle" : "Paroly görkez"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></span></label>
@@ -65,7 +65,7 @@ export function LoginForm() {
             <button className="primary-button login-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? "Girilýär..." : "Dashboard-a gir"}</button>
           </form>
 
-          <p className="demo-credentials">Administrator: <code>admin@arena.demo</code> / <code>admin123</code><br />Kassir: <code>cashier@arena.demo</code> / <code>cashier123</code></p>
+          <p className="demo-credentials">Ilkinji parollar server işe girizilende <code>.env</code> arkaly bellenýär.</p>
         </div>
       </section>
     </main>
