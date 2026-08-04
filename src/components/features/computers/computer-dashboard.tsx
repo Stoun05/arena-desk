@@ -9,6 +9,7 @@ import {
   MonitorCog,
   Plus,
   ReceiptText,
+  Server,
   UserRound,
 } from "lucide-react";
 
@@ -327,6 +328,25 @@ export function ComputerDashboard({ initialStations }: { initialStations: Comput
           {notice}
         </div>
       ) : null}
+
+      <section aria-label="Server ýagdaýy" className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:grid-cols-2 sm:p-5">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-xl bg-emerald-400/10 text-emerald-300">
+            <Server aria-hidden="true" className="size-4.5" />
+          </span>
+          <div>
+            <p className="text-sm font-medium text-slate-200">ASP.NET Core API</p>
+            <p className="mt-1 text-xs text-emerald-300">Stage 6 binýady taýýar</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 sm:justify-end">
+          <span aria-hidden="true" className="size-2 rounded-full bg-amber-400" />
+          <div className="sm:text-right">
+            <p className="text-sm text-slate-300">PostgreSQL</p>
+            <p className="mt-1 text-xs text-amber-300">Stage 7-de birikdiriler</p>
+          </div>
+        </div>
+      </section>
 
       <section aria-label="Gysga statistika" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {statistics.map((statistic) => {

@@ -10,6 +10,17 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 - **Windows agent:** C# .NET Worker Service
 - **Player screen:** WPF client application
 
+## Backend setup
+
+Stage 6 adds the ASP.NET Core API foundation under `server/ArenaDesk.Api` with validated configuration, restricted CORS, rate limiting, security headers, centralized problem responses, and health/status endpoints.
+
+```bash
+dotnet restore server/ArenaDesk.Api/ArenaDesk.Api.csproj
+dotnet run --project server/ArenaDesk.Api/ArenaDesk.Api.csproj --launch-profile http
+```
+
+Then verify `http://localhost:5080/api/v1/system/status` and `http://localhost:5080/health/live`. PostgreSQL persistence is scheduled for Stage 7.
+
 ## MVP roadmap
 
 1. Build the administrator dashboard and authentication
@@ -77,4 +88,4 @@ src/
 
 ## Status
 
-Stages 1–5 are complete: the MVP requirements, frontend foundation, demo login, responsive navigation, interactive 10-computer dashboard, and frontend session-management flow are ready. Persisting sessions in the backend and database is the next milestone.
+Stages 1–6 are complete: the MVP requirements, frontend foundation, demo login, responsive navigation, interactive 10-computer dashboard, frontend session-management flow, and ASP.NET Core API foundation are ready. PostgreSQL persistence and Entity Framework Core are the next milestone.
