@@ -20,6 +20,10 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 6. Create the Windows agent and locked player screen
 7. Test on one computer, then deploy to ten computers
 
+## Documentation
+
+- [MVP requirements](docs/requirements.md) — scope, roles, session rules, payments, offline operation, security, and acceptance criteria
+
 ## Core session flow
 
 1. A cashier selects an available computer.
@@ -31,4 +35,4 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## Status
 
-Planning and interface design are complete. Initial application development is the next milestone.
+Stage 1 is complete: the MVP requirements and acceptance criteria are documented. Technical architecture and initial application setup are the next milestones.
