@@ -59,6 +59,7 @@ jobs:
       Jwt__Issuer: ArenaDesk.Api.CI
       Jwt__Audience: ArenaDesk.Web.CI
       Jwt__Key: arena-desk-ci-only-signing-key-2026-do-not-use-in-production
+      Agent__BootstrapKey: arena-desk-ci-only-bootstrap-key-2026-do-not-use-in-production
       Cors__AllowedOrigins__0: http://localhost:3000
       Seed__AdminEmail: admin@arena.test
       Seed__AdminPassword: ArenaDesk-CI-Admin-2026!
@@ -79,6 +80,12 @@ jobs:
 
       - name: Build backend
         run: dotnet build server/ArenaDesk.Api/ArenaDesk.Api.csproj --configuration Release --no-restore
+
+      - name: Restore Windows agent dependencies
+        run: dotnet restore agent/ArenaDesk.Agent/ArenaDesk.Agent.csproj
+
+      - name: Build Windows agent
+        run: dotnet build agent/ArenaDesk.Agent/ArenaDesk.Agent.csproj --configuration Release --no-restore
 
       - name: Start API
         run: |
@@ -105,6 +112,14 @@ jobs:
           api_url="http://127.0.0.1:8080/api"
           cookie_jar="${RUNNER_TEMP}/arena-cookies.txt"
 
+          registration=$(curl --fail --silent --show-error \
+            --header "Content-Type: application/json" \
+            --header "X-Arena-Bootstrap-Key: arena-desk-ci-only-bootstrap-key-2026-do-not-use-in-production" \
+            --data '{"computerName":"PC-01","machineName":"CI-RUNNER","macAddress":"001122334455","agentVersion":"1.0.0-ci"}' \
+            "${api_url}/agent/register")
+          agent_token=$(jq --exit-status --raw-output '.agentToken' <<< "${registration}")
+          computer_id=$(jq --exit-status --raw-output '.computerId' <<< "${registration}")
+
           curl --fail --silent --show-error \
             --cookie-jar "${cookie_jar}" \
             --header "Content-Type: application/json" \
@@ -117,10 +132,11 @@ jobs:
             "${api_url}/auth/me" \
             | jq --exit-status '.email == "admin@arena.test"' > /dev/null
 
-          computer_id=$(curl --fail --silent --show-error \
+          curl --fail --silent --show-error \
             --cookie "${cookie_jar}" \
             "${api_url}/computers" \
-            | jq --exit-status --raw-output '[.[] | select(.status == "available")][0].id')
+            | jq --exit-status --arg id "${computer_id}" \
+              '.[] | select(.id == $id) | .agentOnline == true' > /dev/null
 
           tariff_id=$(curl --fail --silent --show-error \
             --cookie "${cookie_jar}" \
@@ -134,6 +150,18 @@ jobs:
             "${api_url}/sessions" \
             | jq --exit-status --raw-output '.id')
 
+          unlock_command=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${agent_token}" \
+            --header "Content-Type: application/json" \
+            --data '{"agentVersion":"1.0.0-ci"}' \
+            "${api_url}/agent/heartbeat")
+          unlock_id=$(jq --exit-status --raw-output 'select(.command.type == "unlock") | .command.id' <<< "${unlock_command}")
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${agent_token}" \
+            --header "Content-Type: application/json" \
+            --data '{"outcome":"simulated","message":"CI observe-only mode"}' \
+            "${api_url}/agent/commands/${unlock_id}/result"
+
           curl --fail --silent --show-error \
             --cookie "${cookie_jar}" \
             --header "Content-Type: application/json" \
@@ -141,10 +169,34 @@ jobs:
             "${api_url}/sessions/${session_id}/extend" \
             | jq --exit-status '.totalPrice > 0' > /dev/null
 
+          update_command=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${agent_token}" \
+            --header "Content-Type: application/json" \
+            --data '{"agentVersion":"1.0.0-ci"}' \
+            "${api_url}/agent/heartbeat")
+          update_id=$(jq --exit-status --raw-output 'select(.command.type == "session-updated") | .command.id' <<< "${update_command}")
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${agent_token}" \
+            --header "Content-Type: application/json" \
+            --data '{"outcome":"simulated","message":"CI observe-only mode"}' \
+            "${api_url}/agent/commands/${update_id}/result"
+
           curl --fail --silent --show-error \
             --cookie "${cookie_jar}" \
             --request POST \
             "${api_url}/sessions/${session_id}/finish"
+
+          lock_command=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${agent_token}" \
+            --header "Content-Type: application/json" \
+            --data '{"agentVersion":"1.0.0-ci"}' \
+            "${api_url}/agent/heartbeat")
+          lock_id=$(jq --exit-status --raw-output 'select(.command.type == "lock") | .command.id' <<< "${lock_command}")
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${agent_token}" \
+            --header "Content-Type: application/json" \
+            --data '{"outcome":"simulated","message":"CI observe-only mode"}' \
+            "${api_url}/agent/commands/${lock_id}/result"
 
           curl --fail --silent --show-error \
             --cookie "${cookie_jar}" \

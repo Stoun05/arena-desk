@@ -9,4 +9,7 @@ export type ComputerStation = {
   customer?: string;
   remainingSeconds?: number;
   sessionPrice?: number;
+  agentOnline?: boolean;
+  lastSeenAt?: string;
+  agentVersion?: string;
 };

@@ -9,6 +9,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Computer> Computers => Set<Computer>();
     public DbSet<Tariff> Tariffs => Set<Tariff>();
     public DbSet<GameSession> Sessions => Set<GameSession>();
+    public DbSet<DeviceCommand> DeviceCommands => Set<DeviceCommand>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,8 +35,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(item => item.Zone).HasColumnName("zone").HasMaxLength(40);
             entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(30);
             entity.Property(item => item.MacAddress).HasColumnName("mac_address").HasMaxLength(40);
+            entity.Property(item => item.MachineName).HasColumnName("machine_name").HasMaxLength(120);
+            entity.Property(item => item.AgentVersion).HasColumnName("agent_version").HasMaxLength(40);
+            entity.Property(item => item.AgentTokenHash).HasColumnName("agent_token_hash").HasMaxLength(64);
             entity.Property(item => item.LastSeenAt).HasColumnName("last_seen_at");
             entity.HasIndex(item => item.Name).IsUnique();
+            entity.HasIndex(item => item.AgentTokenHash).IsUnique();
         });
 
         modelBuilder.Entity<Tariff>(entity =>
@@ -67,6 +72,24 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasOne(item => item.Computer).WithMany(item => item.Sessions).HasForeignKey(item => item.ComputerId);
             entity.HasOne(item => item.Tariff).WithMany(item => item.Sessions).HasForeignKey(item => item.TariffId);
             entity.HasOne(item => item.CreatedByUser).WithMany().HasForeignKey(item => item.CreatedByUserId);
+        });
+
+        modelBuilder.Entity<DeviceCommand>(entity =>
+        {
+            entity.ToTable("device_commands");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Id).HasColumnName("id");
+            entity.Property(item => item.ComputerId).HasColumnName("computer_id");
+            entity.Property(item => item.Type).HasColumnName("type").HasMaxLength(40);
+            entity.Property(item => item.Payload).HasColumnName("payload").HasColumnType("jsonb");
+            entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(30);
+            entity.Property(item => item.DeliveryAttempts).HasColumnName("delivery_attempts");
+            entity.Property(item => item.CreatedAt).HasColumnName("created_at");
+            entity.Property(item => item.DeliveredAt).HasColumnName("delivered_at");
+            entity.Property(item => item.CompletedAt).HasColumnName("completed_at");
+            entity.Property(item => item.ResultMessage).HasColumnName("result_message").HasMaxLength(500);
+            entity.HasIndex(item => new { item.ComputerId, item.Status, item.CreatedAt });
+            entity.HasOne(item => item.Computer).WithMany(item => item.Commands).HasForeignKey(item => item.ComputerId);
         });
     }
 }

@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json;
 using ArenaDesk.Api.Contracts;
 using ArenaDesk.Api.Data;
 using ArenaDesk.Api.Models;
@@ -44,6 +45,13 @@ public sealed class SessionsController(AppDbContext db) : ControllerBase
         };
         computer.Status = "active";
         db.Sessions.Add(session);
+        db.DeviceCommands.Add(new DeviceCommand
+        {
+            ComputerId = computer.Id,
+            Type = "unlock",
+            Payload = JsonSerializer.Serialize(new { session.Id, session.CustomerName, session.EndsAt }),
+            Status = "pending",
+        });
         await db.SaveChangesAsync();
         return Created($"/api/sessions/{session.Id}", new { session.Id, session.EndsAt, session.TotalPrice });
     }
@@ -57,6 +65,13 @@ public sealed class SessionsController(AppDbContext db) : ControllerBase
         session.PurchasedMinutes += request.Minutes;
         session.EndsAt = session.EndsAt.AddMinutes(request.Minutes);
         session.TotalPrice = decimal.Round(session.Tariff.HourlyRate * session.PurchasedMinutes / 60m, 2);
+        db.DeviceCommands.Add(new DeviceCommand
+        {
+            ComputerId = session.ComputerId,
+            Type = "session-updated",
+            Payload = JsonSerializer.Serialize(new { session.Id, session.EndsAt }),
+            Status = "pending",
+        });
         await db.SaveChangesAsync();
         return Ok(new { session.Id, session.EndsAt, session.TotalPrice });
     }
@@ -69,6 +84,13 @@ public sealed class SessionsController(AppDbContext db) : ControllerBase
         session.Status = "finished";
         session.FinishedAt = DateTimeOffset.UtcNow;
         session.Computer.Status = "available";
+        db.DeviceCommands.Add(new DeviceCommand
+        {
+            ComputerId = session.ComputerId,
+            Type = "lock",
+            Payload = JsonSerializer.Serialize(new { session.Id, session.FinishedAt }),
+            Status = "pending",
+        });
         await db.SaveChangesAsync();
         return NoContent();
     }

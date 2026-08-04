@@ -14,12 +14,19 @@ if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
 {
     throw new InvalidOperationException("Jwt:Key must contain at least 32 characters.");
 }
+var agentBootstrapKey = builder.Configuration["Agent:BootstrapKey"];
+if (string.IsNullOrWhiteSpace(agentBootstrapKey) || agentBootstrapKey.Length < 32)
+{
+    throw new InvalidOperationException("Agent:BootstrapKey must contain at least 32 characters.");
+}
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<DatabaseSeeder>();
+builder.Services.AddScoped<AgentAuthenticationService>();
+builder.Services.AddHostedService<SessionExpiryWorker>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

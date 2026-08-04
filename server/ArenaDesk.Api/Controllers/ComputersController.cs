@@ -31,7 +31,10 @@ public sealed class ComputersController(AppDbContext db) : ControllerBase
                 session?.Id,
                 session?.CustomerName,
                 session is null ? null : Math.Max(0, (int)(session.EndsAt - now).TotalSeconds),
-                session?.TotalPrice);
+                session?.TotalPrice,
+                item.LastSeenAt is not null && item.LastSeenAt >= now.AddSeconds(-30),
+                item.LastSeenAt,
+                item.AgentVersion);
         }).ToList();
         return Ok(stations);
     }
@@ -51,9 +54,20 @@ public sealed class ComputersController(AppDbContext db) : ControllerBase
         };
         db.Computers.Add(computer);
         await db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetAll), new ComputerResponse(computer.Id, computer.Name, computer.Zone, computer.Status, null, null, null, null));
+        return CreatedAtAction(nameof(GetAll), new ComputerResponse(computer.Id, computer.Name, computer.Zone, computer.Status, null, null, null, null, false, null, null));
     }
 }
 
 public sealed record CreateComputerRequest(string Name, string Zone, string? MacAddress);
-public sealed record ComputerResponse(Guid Id, string Name, string Zone, string Status, Guid? SessionId, string? Customer, int? RemainingSeconds, decimal? SessionPrice);
+public sealed record ComputerResponse(
+    Guid Id,
+    string Name,
+    string Zone,
+    string Status,
+    Guid? SessionId,
+    string? Customer,
+    int? RemainingSeconds,
+    decimal? SessionPrice,
+    bool AgentOnline,
+    DateTimeOffset? LastSeenAt,
+    string? AgentVersion);

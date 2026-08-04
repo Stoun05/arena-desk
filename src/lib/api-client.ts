@@ -15,6 +15,9 @@ type ApiComputer = {
   customer?: string | null;
   remainingSeconds?: number | null;
   sessionPrice?: number | null;
+  agentOnline: boolean;
+  lastSeenAt?: string | null;
+  agentVersion?: string | null;
 };
 
 type ApiError = { message?: string };
@@ -65,6 +68,9 @@ export async function getComputers(): Promise<ComputerStation[]> {
     customer: computer.customer ?? undefined,
     remainingSeconds: computer.remainingSeconds ?? undefined,
     sessionPrice: computer.sessionPrice ?? undefined,
+    agentOnline: computer.agentOnline,
+    lastSeenAt: computer.lastSeenAt ?? undefined,
+    agentVersion: computer.agentVersion ?? undefined,
   }));
 }
 
