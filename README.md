@@ -1,10 +1,47 @@
 # ArenaDesk
 
-ArenaDesk is a planned management platform for gaming clubs and internet cafés. It is designed to manage timed computer sessions, customer access, tariffs, payments, sales, games, and operational reports from one dashboard.
+ArenaDesk is a management platform for gaming clubs and internet cafés. It is designed to manage timed computer sessions, customer access, tariffs, payments, sales, games, and operational reports from one dashboard.
+
+## Current milestone
+
+The initial responsive dashboard is implemented with demo data. It includes:
+
+- 10 computer stations with available, active, warning, and offline states
+- Live session countdowns
+- Station selection and session details
+- A functional new-session form with duration and tariff calculation
+- Session extension and completion controls
+- Responsive desktop, tablet, and mobile layouts
+
+Backend persistence and real computer control are intentionally not included in this milestone.
+
+## Technology
+
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- Lucide icons
+
+## Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Validation
+
+```bash
+npm run lint
+npm run build
+```
 
 ## Planned architecture
 
-- **Dashboard:** Next.js, TypeScript, Tailwind CSS, shadcn/ui
+- **Dashboard:** Next.js, TypeScript, Tailwind CSS
 - **Backend:** ASP.NET Core and SignalR
 - **Database:** PostgreSQL
 - **Windows agent:** C# .NET Worker Service
@@ -12,23 +49,9 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## MVP roadmap
 
-1. Build the administrator dashboard and authentication
-2. Display and manage 10 computer stations
-3. Add session timing, tariffs, and payments
-4. Connect the dashboard to the backend and database
-5. Build real-time computer status updates
-6. Create the Windows agent and locked player screen
-7. Test on one computer, then deploy to ten computers
-
-## Core session flow
-
-1. A cashier selects an available computer.
-2. The cashier chooses a duration and tariff.
-3. The selected computer is unlocked and the timer starts.
-4. The player receives warnings before time expires.
-5. At the end of the session, the player is signed out and the computer returns to the locked screen.
-6. The session and payment are recorded in the report.
-
-## Status
-
-Planning and interface design are complete. Initial application development is the next milestone.
+1. ✅ Build the initial administrator dashboard
+2. Add authentication and staff roles
+3. Persist computers, sessions, tariffs, and payments
+4. Connect real-time status updates through SignalR
+5. Create the Windows agent and locked player screen
+6. Test on one computer, then deploy to ten computers
