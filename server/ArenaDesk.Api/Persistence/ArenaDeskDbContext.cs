@@ -12,6 +12,7 @@ public sealed class ArenaDeskDbContext(DbContextOptions<ArenaDeskDbContext> opti
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<AgentCommandRecord> AgentCommands => Set<AgentCommandRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

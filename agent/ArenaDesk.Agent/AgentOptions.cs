@@ -23,4 +23,6 @@ public sealed class AgentOptions
 
     [Required]
     public string CommandExecutionMode { get; init; } = "LogOnly";
+
+    public string StateDirectory { get; init; } = string.Empty;
 }

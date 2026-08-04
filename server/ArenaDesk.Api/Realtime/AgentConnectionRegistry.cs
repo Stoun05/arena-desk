@@ -21,6 +21,8 @@ public sealed class AgentConnectionRegistry
     public bool TryGetComputer(string connectionId, out Guid computerId) =>
         _computersByConnection.TryGetValue(connectionId, out computerId);
 
+    public bool IsConnected(Guid computerId) => _connectionsByComputer.ContainsKey(computerId);
+
     public bool TryUnregisterCurrent(string connectionId, out Guid computerId)
     {
         if (!_computersByConnection.TryRemove(connectionId, out computerId))

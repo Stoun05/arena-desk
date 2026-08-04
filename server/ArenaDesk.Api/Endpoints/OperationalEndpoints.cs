@@ -130,6 +130,7 @@ public static class OperationalEndpoints
         ILogger<OperationsHub> hubLogger,
         IHubContext<AgentHub> agentHubContext,
         ILogger<AgentHub> agentHubLogger,
+        AgentConnectionRegistry agentConnections,
         CancellationToken cancellationToken)
     {
         if (!IsValidDuration(request.DurationMinutes, 15, 720) || !TryParsePaymentMethod(request.PaymentMethod, out var paymentMethod))
@@ -139,7 +140,7 @@ public static class OperationalEndpoints
 
         var cashierId = GetUserId(principal);
         Guid? changedComputerId = null;
-        AgentCommand? agentCommand = null;
+        AgentCommandRecord? agentCommand = null;
         try
         {
             var result = await ExecuteInTransactionAsync(database, cancellationToken, async () =>
@@ -203,14 +204,17 @@ public static class OperationalEndpoints
 
                 await database.SaveChangesAsync(cancellationToken);
                 changedComputerId = computer.Id;
-                agentCommand = new AgentCommand(
-                    Guid.NewGuid(),
-                    computer.Id,
-                    session.Id,
-                    AgentCommandTypes.Unlock,
-                    now,
-                    session.EndsAtUtc,
-                    computer.EndAction.ToString().ToLowerInvariant());
+                agentCommand = new AgentCommandRecord
+                {
+                    ComputerId = computer.Id,
+                    SessionId = session.Id,
+                    Type = AgentCommandTypes.Unlock,
+                    EndsAtUtc = session.EndsAtUtc,
+                    EndAction = computer.EndAction.ToString().ToLowerInvariant(),
+                    CreatedAtUtc = now,
+                };
+                database.AgentCommands.Add(agentCommand);
+                await database.SaveChangesAsync(cancellationToken);
                 var response = ToResponse(session);
                 return Results.Created($"/api/v1/sessions/{session.Id}", response);
             });
@@ -220,7 +224,13 @@ public static class OperationalEndpoints
             }
             if (agentCommand is not null)
             {
-                await PublishAgentCommandAsync(agentHubContext, agentHubLogger, agentCommand, cancellationToken);
+                await PublishAgentCommandAsync(
+                    database,
+                    agentHubContext,
+                    agentHubLogger,
+                    agentConnections,
+                    agentCommand,
+                    cancellationToken);
             }
 
             return result;
@@ -241,6 +251,7 @@ public static class OperationalEndpoints
         ILogger<OperationsHub> hubLogger,
         IHubContext<AgentHub> agentHubContext,
         ILogger<AgentHub> agentHubLogger,
+        AgentConnectionRegistry agentConnections,
         CancellationToken cancellationToken)
     {
         if (!IsValidDuration(request.DurationMinutes, 15, 360) || !TryParsePaymentMethod(request.PaymentMethod, out var paymentMethod))
@@ -250,7 +261,7 @@ public static class OperationalEndpoints
 
         var cashierId = GetUserId(principal);
         Guid? changedComputerId = null;
-        AgentCommand? agentCommand = null;
+        AgentCommandRecord? agentCommand = null;
         var result = await ExecuteInTransactionAsync(database, cancellationToken, async () =>
         {
             changedComputerId = null;
@@ -288,16 +299,18 @@ public static class OperationalEndpoints
             database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Extended", "Session", session.Id, context,
                 new { request.DurationMinutes, extraPrice, paymentMethod = request.PaymentMethod }));
 
-            await database.SaveChangesAsync(cancellationToken);
             changedComputerId = session.ComputerId;
-            agentCommand = new AgentCommand(
-                Guid.NewGuid(),
-                session.ComputerId,
-                session.Id,
-                AgentCommandTypes.SyncSession,
-                now,
-                session.EndsAtUtc,
-                session.Computer.EndAction.ToString().ToLowerInvariant());
+            agentCommand = new AgentCommandRecord
+            {
+                ComputerId = session.ComputerId,
+                SessionId = session.Id,
+                Type = AgentCommandTypes.SyncSession,
+                EndsAtUtc = session.EndsAtUtc,
+                EndAction = session.Computer.EndAction.ToString().ToLowerInvariant(),
+                CreatedAtUtc = now,
+            };
+            database.AgentCommands.Add(agentCommand);
+            await database.SaveChangesAsync(cancellationToken);
             return Results.Ok(ToResponse(session));
         });
         if (changedComputerId is Guid computerId)
@@ -306,7 +319,13 @@ public static class OperationalEndpoints
         }
         if (agentCommand is not null)
         {
-            await PublishAgentCommandAsync(agentHubContext, agentHubLogger, agentCommand, cancellationToken);
+            await PublishAgentCommandAsync(
+                database,
+                agentHubContext,
+                agentHubLogger,
+                agentConnections,
+                agentCommand,
+                cancellationToken);
         }
 
         return result;
@@ -321,11 +340,12 @@ public static class OperationalEndpoints
         ILogger<OperationsHub> hubLogger,
         IHubContext<AgentHub> agentHubContext,
         ILogger<AgentHub> agentHubLogger,
+        AgentConnectionRegistry agentConnections,
         CancellationToken cancellationToken)
     {
         var cashierId = GetUserId(principal);
         Guid? changedComputerId = null;
-        AgentCommand? agentCommand = null;
+        AgentCommandRecord? agentCommand = null;
         var result = await ExecuteInTransactionAsync(database, cancellationToken, async () =>
         {
             changedComputerId = null;
@@ -349,16 +369,17 @@ public static class OperationalEndpoints
             session.Computer.Status = ComputerStatus.Available;
             session.Computer.UpdatedAtUtc = now;
             database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Completed", "Session", session.Id, context));
-            await database.SaveChangesAsync(cancellationToken);
             changedComputerId = session.ComputerId;
-            agentCommand = new AgentCommand(
-                Guid.NewGuid(),
-                session.ComputerId,
-                session.Id,
-                session.Computer.EndAction.ToString().ToLowerInvariant(),
-                now,
-                null,
-                session.Computer.EndAction.ToString().ToLowerInvariant());
+            agentCommand = new AgentCommandRecord
+            {
+                ComputerId = session.ComputerId,
+                SessionId = session.Id,
+                Type = session.Computer.EndAction.ToString().ToLowerInvariant(),
+                EndAction = session.Computer.EndAction.ToString().ToLowerInvariant(),
+                CreatedAtUtc = now,
+            };
+            database.AgentCommands.Add(agentCommand);
+            await database.SaveChangesAsync(cancellationToken);
             return Results.Ok(ToResponse(session));
         });
         if (changedComputerId is Guid computerId)
@@ -367,7 +388,13 @@ public static class OperationalEndpoints
         }
         if (agentCommand is not null)
         {
-            await PublishAgentCommandAsync(agentHubContext, agentHubLogger, agentCommand, cancellationToken);
+            await PublishAgentCommandAsync(
+                database,
+                agentHubContext,
+                agentHubLogger,
+                agentConnections,
+                agentCommand,
+                cancellationToken);
         }
 
         return result;
@@ -397,16 +424,26 @@ public static class OperationalEndpoints
     }
 
     private static async Task PublishAgentCommandAsync(
+        ArenaDeskDbContext database,
         IHubContext<AgentHub> hubContext,
         ILogger<AgentHub> logger,
-        AgentCommand command,
+        AgentConnectionRegistry connections,
+        AgentCommandRecord command,
         CancellationToken cancellationToken)
     {
+        if (!connections.IsConnected(command.ComputerId))
+        {
+            return;
+        }
+
         try
         {
+            command.Status = AgentCommandStatus.Delivered;
+            command.DeliveredAtUtc = DateTimeOffset.UtcNow;
+            await database.SaveChangesAsync(cancellationToken);
             await hubContext.Clients.Group(AgentProtocol.ComputerGroup(command.ComputerId)).SendAsync(
                 AgentProtocol.CommandEvent,
-                command,
+                command.ToContract(),
                 cancellationToken);
         }
         catch (Exception exception)
@@ -414,7 +451,7 @@ public static class OperationalEndpoints
             logger.LogWarning(
                 exception,
                 "Session operation committed but agent command {CommandId} could not be sent to computer {ComputerId}.",
-                command.CommandId,
+                command.Id,
                 command.ComputerId);
         }
     }

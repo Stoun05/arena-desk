@@ -5,31 +5,63 @@ namespace ArenaDesk.Agent;
 
 public sealed class AgentCommandProcessor(
     IOptions<AgentOptions> options,
+    ProcessedCommandStore processedCommands,
+    WindowsCommandExecutor executor,
     ILogger<AgentCommandProcessor> logger)
 {
-    public Task<AgentCommandAcknowledgement> ProcessAsync(
+    public async Task<AgentCommandExecutionPlan> PrepareAsync(
         AgentCommand command,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!string.Equals(options.Value.CommandExecutionMode, "LogOnly", StringComparison.OrdinalIgnoreCase))
+        if (await processedCommands.ContainsAsync(command.CommandId, cancellationToken))
         {
-            return Task.FromResult(new AgentCommandAcknowledgement(
-                command.CommandId,
-                "rejected",
-                "Only LogOnly execution mode is enabled in Stage 11.",
-                DateTimeOffset.UtcNow));
+            logger.LogInformation("Skipping duplicate command {CommandId}.", command.CommandId);
+            return new AgentCommandExecutionPlan(Acknowledge(command, "completed"), null);
+        }
+
+        var systemMode = string.Equals(
+            options.Value.CommandExecutionMode,
+            "System",
+            StringComparison.OrdinalIgnoreCase);
+        if (systemMode && !OperatingSystem.IsWindows())
+        {
+            return new AgentCommandExecutionPlan(
+                Acknowledge(command, "rejected", "System mode is available only on Windows."),
+                null);
+        }
+
+        await processedCommands.MarkProcessedAsync(command.CommandId, cancellationToken);
+        if (systemMode && executor.CanExecute(command.Type))
+        {
+            logger.LogWarning(
+                "Accepted guarded system command {CommandType} ({CommandId}).",
+                command.Type,
+                command.CommandId);
+            return new AgentCommandExecutionPlan(
+                Acknowledge(command, "accepted"),
+                token => executor.ExecuteAsync(command, token));
         }
 
         logger.LogInformation(
-            "Received {CommandType} command {CommandId} for computer {ComputerId}; Stage 11 is running in LogOnly mode.",
+            "Recorded {CommandType} command {CommandId} for computer {ComputerId} in {Mode} mode.",
             command.Type,
             command.CommandId,
-            command.ComputerId);
-        return Task.FromResult(new AgentCommandAcknowledgement(
-            command.CommandId,
-            "received",
-            null,
-            DateTimeOffset.UtcNow));
+            command.ComputerId,
+            options.Value.CommandExecutionMode);
+        return new AgentCommandExecutionPlan(Acknowledge(command, "received"), null);
     }
+
+    public static AgentCommandAcknowledgement Acknowledge(
+        AgentCommand command,
+        string status,
+        string? error = null) => new(
+            command.CommandId,
+            status,
+            error,
+            DateTimeOffset.UtcNow);
 }
+
+public sealed record AgentCommandExecutionPlan(
+    AgentCommandAcknowledgement InitialAcknowledgement,
+    Func<CancellationToken, Task>? ExecuteAsync);

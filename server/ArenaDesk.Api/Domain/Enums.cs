@@ -47,3 +47,11 @@ public enum SessionEndAction
     Sleep,
     Shutdown,
 }
+
+public enum AgentCommandStatus
+{
+    Pending,
+    Delivered,
+    Acknowledged,
+    Failed,
+}
