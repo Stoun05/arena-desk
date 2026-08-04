@@ -39,7 +39,7 @@ public static class SystemEndpoints
                 ServerTimeUtc: DateTimeOffset.UtcNow,
                 ComputerLimit: options.Value.ComputerLimit,
                 Database: databaseStatus,
-                Stage: 10);
+                Stage: 11);
 
             return Results.Ok(response);
         })

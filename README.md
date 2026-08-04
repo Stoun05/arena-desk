@@ -12,7 +12,7 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## Backend setup
 
-Stage 10 adds authenticated SignalR updates to the Stage 9 PostgreSQL operations. When one cashier starts, extends, or completes a session, every connected dashboard is notified and refreshes its computer state from the API.
+Stage 11 adds the first Windows Agent command channel. Each configured .NET Worker Agent authenticates with a separate shared key, binds to one computer, sends heartbeats, and receives targeted unlock, session-sync, logout, sleep, or shutdown command envelopes after database operations commit.
 
 ```bash
 cp .env.example .env
@@ -54,7 +54,7 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-The Stage 10 web panel includes:
+The Stage 11 web panel includes:
 
 - `/login` — JWT login connected to the API, plus clearly labelled admin/cashier UI previews for the static GitHub Pages deployment;
 - `/dashboard` — responsive sidebar, live-style summary cards, and 10 interactive computer station cards;
@@ -63,6 +63,7 @@ The Stage 10 web panel includes:
 - a new-session flow with duration, matching tariff, cash/card payment, automatic total, and ending-time calculation;
 - authenticated controls that persist session start, 30-minute extensions, completion, and payments;
 - an authenticated SignalR connection with automatic reconnect and live computer-grid refresh across open dashboards;
+- a visible Windows Agent command-channel status alongside the API, SignalR, and PostgreSQL services;
 - clearly labelled UI-demo navigation for reviewing the static GitHub Pages deployment without a hosted API.
 
 ### Frontend structure
@@ -92,4 +93,4 @@ src/
 
 ## Status
 
-Stages 1–10 are complete: the MVP requirements, frontend foundation, responsive navigation, interactive 10-computer dashboard, ASP.NET Core API, PostgreSQL/Entity Framework Core persistence, JWT roles, transactional session/tariff/payment operations, and real-time SignalR dashboard updates are ready. The Windows Agent command channel is the next milestone.
+Stages 1–11 are complete: the MVP requirements, dashboard, ASP.NET Core API, PostgreSQL persistence, JWT roles, transactional session/payment operations, real-time dashboard updates, and the authenticated Windows Agent command channel are ready. The guarded Windows command executor and offline command recovery are the next milestone.

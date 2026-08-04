@@ -5,6 +5,7 @@ using ArenaDesk.Api.Contracts;
 using ArenaDesk.Api.Domain;
 using ArenaDesk.Api.Persistence;
 using ArenaDesk.Api.Realtime;
+using ArenaDesk.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 
@@ -127,6 +128,8 @@ public static class OperationalEndpoints
         ArenaDeskDbContext database,
         IHubContext<OperationsHub> hubContext,
         ILogger<OperationsHub> hubLogger,
+        IHubContext<AgentHub> agentHubContext,
+        ILogger<AgentHub> agentHubLogger,
         CancellationToken cancellationToken)
     {
         if (!IsValidDuration(request.DurationMinutes, 15, 720) || !TryParsePaymentMethod(request.PaymentMethod, out var paymentMethod))
@@ -136,11 +139,13 @@ public static class OperationalEndpoints
 
         var cashierId = GetUserId(principal);
         Guid? changedComputerId = null;
+        AgentCommand? agentCommand = null;
         try
         {
             var result = await ExecuteInTransactionAsync(database, cancellationToken, async () =>
             {
                 changedComputerId = null;
+                agentCommand = null;
                 var computer = await database.Computers.SingleOrDefaultAsync(item => item.Id == request.ComputerId, cancellationToken);
                 if (computer is null)
                 {
@@ -198,12 +203,24 @@ public static class OperationalEndpoints
 
                 await database.SaveChangesAsync(cancellationToken);
                 changedComputerId = computer.Id;
+                agentCommand = new AgentCommand(
+                    Guid.NewGuid(),
+                    computer.Id,
+                    session.Id,
+                    AgentCommandTypes.Unlock,
+                    now,
+                    session.EndsAtUtc,
+                    computer.EndAction.ToString().ToLowerInvariant());
                 var response = ToResponse(session);
                 return Results.Created($"/api/v1/sessions/{session.Id}", response);
             });
             if (changedComputerId is Guid computerId)
             {
                 await PublishComputerChangeAsync(hubContext, hubLogger, computerId, "session-started", cancellationToken);
+            }
+            if (agentCommand is not null)
+            {
+                await PublishAgentCommandAsync(agentHubContext, agentHubLogger, agentCommand, cancellationToken);
             }
 
             return result;
@@ -222,6 +239,8 @@ public static class OperationalEndpoints
         ArenaDeskDbContext database,
         IHubContext<OperationsHub> hubContext,
         ILogger<OperationsHub> hubLogger,
+        IHubContext<AgentHub> agentHubContext,
+        ILogger<AgentHub> agentHubLogger,
         CancellationToken cancellationToken)
     {
         if (!IsValidDuration(request.DurationMinutes, 15, 360) || !TryParsePaymentMethod(request.PaymentMethod, out var paymentMethod))
@@ -231,9 +250,11 @@ public static class OperationalEndpoints
 
         var cashierId = GetUserId(principal);
         Guid? changedComputerId = null;
+        AgentCommand? agentCommand = null;
         var result = await ExecuteInTransactionAsync(database, cancellationToken, async () =>
         {
             changedComputerId = null;
+            agentCommand = null;
             var session = await database.Sessions
                 .Include(item => item.Computer)
                 .SingleOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
@@ -269,11 +290,23 @@ public static class OperationalEndpoints
 
             await database.SaveChangesAsync(cancellationToken);
             changedComputerId = session.ComputerId;
+            agentCommand = new AgentCommand(
+                Guid.NewGuid(),
+                session.ComputerId,
+                session.Id,
+                AgentCommandTypes.SyncSession,
+                now,
+                session.EndsAtUtc,
+                session.Computer.EndAction.ToString().ToLowerInvariant());
             return Results.Ok(ToResponse(session));
         });
         if (changedComputerId is Guid computerId)
         {
             await PublishComputerChangeAsync(hubContext, hubLogger, computerId, "session-extended", cancellationToken);
+        }
+        if (agentCommand is not null)
+        {
+            await PublishAgentCommandAsync(agentHubContext, agentHubLogger, agentCommand, cancellationToken);
         }
 
         return result;
@@ -286,13 +319,17 @@ public static class OperationalEndpoints
         ArenaDeskDbContext database,
         IHubContext<OperationsHub> hubContext,
         ILogger<OperationsHub> hubLogger,
+        IHubContext<AgentHub> agentHubContext,
+        ILogger<AgentHub> agentHubLogger,
         CancellationToken cancellationToken)
     {
         var cashierId = GetUserId(principal);
         Guid? changedComputerId = null;
+        AgentCommand? agentCommand = null;
         var result = await ExecuteInTransactionAsync(database, cancellationToken, async () =>
         {
             changedComputerId = null;
+            agentCommand = null;
             var session = await database.Sessions
                 .Include(item => item.Computer)
                 .SingleOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
@@ -314,11 +351,23 @@ public static class OperationalEndpoints
             database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Completed", "Session", session.Id, context));
             await database.SaveChangesAsync(cancellationToken);
             changedComputerId = session.ComputerId;
+            agentCommand = new AgentCommand(
+                Guid.NewGuid(),
+                session.ComputerId,
+                session.Id,
+                session.Computer.EndAction.ToString().ToLowerInvariant(),
+                now,
+                null,
+                session.Computer.EndAction.ToString().ToLowerInvariant());
             return Results.Ok(ToResponse(session));
         });
         if (changedComputerId is Guid computerId)
         {
             await PublishComputerChangeAsync(hubContext, hubLogger, computerId, "session-completed", cancellationToken);
+        }
+        if (agentCommand is not null)
+        {
+            await PublishAgentCommandAsync(agentHubContext, agentHubLogger, agentCommand, cancellationToken);
         }
 
         return result;
@@ -344,6 +393,29 @@ public static class OperationalEndpoints
                 exception,
                 "Session operation committed but SignalR notification failed for computer {ComputerId}.",
                 computerId);
+        }
+    }
+
+    private static async Task PublishAgentCommandAsync(
+        IHubContext<AgentHub> hubContext,
+        ILogger<AgentHub> logger,
+        AgentCommand command,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await hubContext.Clients.Group(AgentProtocol.ComputerGroup(command.ComputerId)).SendAsync(
+                AgentProtocol.CommandEvent,
+                command,
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Session operation committed but agent command {CommandId} could not be sent to computer {ComputerId}.",
+                command.CommandId,
+                command.ComputerId);
         }
     }
 
