@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   Banknote,
   CircleDot,
@@ -9,11 +10,6 @@ import {
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
-import type { UserRole } from "@/types/auth";
-
-type DashboardPageProps = {
-  searchParams: Promise<{ role?: string | string[] }>;
-};
 
 const statistics = [
   {
@@ -50,12 +46,10 @@ const statistics = [
   },
 ];
 
-export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const params = await searchParams;
-  const role: UserRole = params.role === "cashier" ? "cashier" : "admin";
-
+export default function DashboardPage() {
   return (
-    <DashboardShell role={role}>
+    <Suspense fallback={<div className="min-h-screen bg-[#070a12]" />}>
+      <DashboardShell>
       <div className="flex flex-col gap-7">
         <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
@@ -153,6 +147,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </aside>
         </section>
       </div>
-    </DashboardShell>
+      </DashboardShell>
+    </Suspense>
   );
 }

@@ -1,5 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Banknote,
   BarChart3,
@@ -35,7 +38,6 @@ const navigation = [
 
 type DashboardShellProps = {
   children: ReactNode;
-  role: UserRole;
 };
 
 function ArenaLogo() {
@@ -109,7 +111,9 @@ function SidebarContent({ role }: { role: UserRole }) {
   );
 }
 
-export function DashboardShell({ children, role }: DashboardShellProps) {
+export function DashboardShell({ children }: DashboardShellProps) {
+  const searchParams = useSearchParams();
+  const role: UserRole = searchParams.get("role") === "cashier" ? "cashier" : "admin";
   const roleLabel = role === "admin" ? "Administrator" : "Kassir";
 
   return (
