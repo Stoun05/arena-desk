@@ -54,6 +54,7 @@ jobs:
 
       - name: Verify API and PostgreSQL readiness
         env:
+          PGPASSWORD: arena_ci
           ASPNETCORE_ENVIRONMENT: Development
           ASPNETCORE_URLS: http://127.0.0.1:5080
           ConnectionStrings__ArenaDesk: Host=127.0.0.1;Port=5432;Database=arena_desk;Username=arena_desk;Password=arena_ci
@@ -104,3 +105,36 @@ jobs:
             --header "Authorization: Bearer $cashier_token" \
             http://127.0.0.1:5080/api/v1/admin/users)
           test "$cashier_status" = "403"
+
+          computer_id=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $admin_token" \
+            http://127.0.0.1:5080/api/v1/computers | jq --raw-output '.[0].id')
+          start_response=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $admin_token" \
+            --header "Content-Type: application/json" \
+            --data "{\"computerId\":\"$computer_id\",\"durationMinutes\":60,\"customerName\":\"CI customer\",\"paymentMethod\":\"card\"}" \
+            http://127.0.0.1:5080/api/v1/sessions/)
+          session_id=$(jq --raw-output '.sessionId' <<< "$start_response")
+          jq --exit-status '.status == "active" and .durationMinutes == 60 and .totalPrice == 15' <<< "$start_response"
+
+          extend_response=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $admin_token" \
+            --header "Content-Type: application/json" \
+            --data '{"durationMinutes":30,"paymentMethod":"cash"}' \
+            http://127.0.0.1:5080/api/v1/sessions/$session_id/extend)
+          jq --exit-status '.durationMinutes == 90 and .totalPrice == 22.5' <<< "$extend_response"
+
+          complete_response=$(curl --fail --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $admin_token" \
+            http://127.0.0.1:5080/api/v1/sessions/$session_id/complete)
+          jq --exit-status '.status == "completed" and .totalPrice == 22.5' <<< "$complete_response"
+
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $admin_token" \
+            http://127.0.0.1:5080/api/v1/computers | \
+            jq --exit-status --arg computer_id "$computer_id" '.[] | select(.id == $computer_id) | .status == "available" and .activeSession == null'
+          test "$(psql --host 127.0.0.1 --username arena_desk --dbname arena_desk --tuples-only --no-align \
+            --command "SELECT count(*) FROM payments WHERE session_id = '$session_id';")" = "2"
+          test "$(psql --host 127.0.0.1 --username arena_desk --dbname arena_desk --tuples-only --no-align \
+            --command "SELECT sum(amount) FROM payments WHERE session_id = '$session_id';")" = "22.50"

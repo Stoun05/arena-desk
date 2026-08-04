@@ -159,8 +159,10 @@ function DetailRow({
 type ComputerStationGridProps = {
   stations: ComputerStation[];
   onStartSession: (stationId: string) => void;
-  onAddTime: (stationId: string) => void;
-  onFinishSession: (stationId: string) => void;
+  onAddTime: (stationId: string) => void | Promise<void>;
+  onFinishSession: (stationId: string) => void | Promise<void>;
+  isDemo: boolean;
+  operationPending: boolean;
 };
 
 export function ComputerStationGrid({
@@ -168,6 +170,8 @@ export function ComputerStationGrid({
   onStartSession,
   onAddTime,
   onFinishSession,
+  isDemo,
+  operationPending,
 }: ComputerStationGridProps) {
   const [selectedId, setSelectedId] = useState(stations[1]?.id ?? stations[0]?.id);
   const selectedStation = stations.find((station) => station.id === selectedId) ?? stations[0];
@@ -183,7 +187,7 @@ export function ComputerStationGrid({
             <p className="mt-1 text-sm text-slate-500">Kartany saýlap, jikme-jik maglumatyny görüň</p>
           </div>
           <span className="self-start rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 py-1 text-xs text-indigo-300 sm:self-auto">
-            Demo maglumat
+            {isDemo ? "Demo maglumat" : "PostgreSQL maglumat"}
           </span>
         </div>
 
@@ -240,7 +244,7 @@ export function ComputerStationGrid({
 
         <div className="mt-6 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
           <Button
-            disabled={!isActive && selectedStation.status !== "available"}
+            disabled={operationPending || (!isActive && selectedStation.status !== "available")}
             onClick={() => isActive ? onAddTime(selectedStation.id) : onStartSession(selectedStation.id)}
             className="bg-indigo-500 text-white hover:bg-indigo-400"
           >
@@ -248,7 +252,7 @@ export function ComputerStationGrid({
             {isActive ? "+30 minut" : "Sessiýa aç"}
           </Button>
           <Button
-            disabled={!isActive}
+            disabled={operationPending || !isActive}
             onClick={() => onFinishSession(selectedStation.id)}
             variant="outline"
             className="border-white/10 bg-white/[0.03] text-slate-300"
@@ -258,7 +262,9 @@ export function ComputerStationGrid({
           </Button>
         </div>
         <p className="mt-3 text-center text-[11px] leading-5 text-slate-600">
-          Demo amallary diňe şu brauzer sessiýasynda saklanýar.
+          {isDemo
+            ? "Demo amallary diňe şu brauzer sessiýasynda saklanýar."
+            : "Amallar JWT arkaly backend-e iberilip PostgreSQL-da saklanýar."}
         </p>
       </aside>
     </section>

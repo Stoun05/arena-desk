@@ -12,7 +12,7 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## Backend setup
 
-Stage 8 adds real JWT login and administrator/cashier authorization under `server/ArenaDesk.Api`. PostgreSQL stores hashed user credentials and audit events, while the web panel keeps the active token until it expires or the user signs out.
+Stage 9 connects the authenticated dashboard to real computer, tariff, session, and payment APIs. Session start, extension, completion, prices, and cash/card payments now persist in PostgreSQL.
 
 ```bash
 cp .env.example .env
@@ -54,15 +54,15 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-The Stage 8 web panel includes:
+The Stage 9 web panel includes:
 
 - `/login` — JWT login connected to the API, plus clearly labelled admin/cashier UI previews for the static GitHub Pages deployment;
 - `/dashboard` — responsive sidebar, live-style summary cards, and 10 interactive computer station cards;
 - Standard/VIP tiers and Boş, Ulanylýar, Wagt gutarýar, Gulply, and Offline visual states;
-- a station detail panel with demo customer, remaining time, tariff, and current charge;
+- a station detail panel with customer, remaining time, tariff, and current charge;
 - a new-session flow with duration, matching tariff, cash/card payment, automatic total, and ending-time calculation;
-- demo controls to add 30 minutes, finish a session, and update statistics in real time;
-- demo-only navigation while the backend authentication service is not yet available.
+- authenticated controls that persist session start, 30-minute extensions, completion, and payments;
+- clearly labelled UI-demo navigation for reviewing the static GitHub Pages deployment without a hosted API.
 
 ### Frontend structure
 
@@ -91,4 +91,4 @@ src/
 
 ## Status
 
-Stages 1–8 are complete: the MVP requirements, frontend foundation, responsive navigation, interactive 10-computer dashboard, frontend session-management flow, ASP.NET Core API, PostgreSQL/Entity Framework Core persistence, and JWT authentication with cashier/administrator roles are ready. Real session and payment business operations are the next milestone.
+Stages 1–9 are complete: the MVP requirements, frontend foundation, responsive navigation, interactive 10-computer dashboard, ASP.NET Core API, PostgreSQL/Entity Framework Core persistence, JWT roles, and transactional session/tariff/payment operations are ready. Real-time SignalR updates are the next milestone.
