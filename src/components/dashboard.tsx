@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ComputerStation, ComputerStatus } from "@/types/computer";
-import { extendSession as extendSessionRequest, finishSession as finishSessionRequest, startSession as startSessionRequest, type AuthUser, type Tariff } from "@/lib/api-client";
+import { extendSession as extendSessionRequest, finishSession as finishSessionRequest, IS_DEMO_MODE, startSession as startSessionRequest, type AuthUser, type Tariff } from "@/lib/api-client";
 
 const statusCopy: Record<ComputerStatus, string> = {
   available: "Boş",
@@ -53,7 +53,9 @@ export function Dashboard({ currentUser, initialStations, tariffs, onLogout }: {
   const [computers, setComputers] = useState(initialStations);
   const [selectedId, setSelectedId] = useState(initialStations[0]?.id ?? "");
   const [isSessionOpen, setIsSessionOpen] = useState(false);
-  const [notice, setNotice] = useState("Demo maglumatlary — backend indiki tapgyrda birikdiriler.");
+  const [notice, setNotice] = useState(IS_DEMO_MODE
+    ? "GitHub Pages demo režimi — hereketler diňe brauzerde simulýasiýa edilýär."
+    : "ArenaDesk API bilen baglanyşyk üstünlikli işleýär.");
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -94,7 +96,12 @@ export function Dashboard({ currentUser, initialStations, tariffs, onLogout }: {
     try {
       const result = await extendSessionRequest(selectedComputer.sessionId, 30);
     setComputers((current) => current.map((computer) => computer.id === selectedComputer.id
-      ? { ...computer, remainingSeconds: Math.max(0, Math.floor((new Date(result.endsAt).getTime() - Date.now()) / 1000)), sessionPrice: result.totalPrice, status: "active" }
+      ? { ...computer,
+          remainingSeconds: IS_DEMO_MODE
+            ? (computer.remainingSeconds ?? 0) + 1800
+            : Math.max(0, Math.floor((new Date(result.endsAt).getTime() - Date.now()) / 1000)),
+          sessionPrice: IS_DEMO_MODE ? (computer.sessionPrice ?? 0) + 7.5 : result.totalPrice,
+          status: "active" }
       : computer));
     setNotice(`${selectedComputer.id} üçin 30 minut goşuldy.`);
     } catch (error) {
