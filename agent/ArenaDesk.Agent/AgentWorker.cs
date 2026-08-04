@@ -7,6 +7,7 @@ namespace ArenaDesk.Agent;
 public sealed class AgentWorker(
     IOptions<AgentOptions> options,
     AgentCommandProcessor commandProcessor,
+    PlayerScreenChannel playerScreen,
     ILogger<AgentWorker> logger) : BackgroundService
 {
     private HubConnection? _connection;
@@ -60,16 +61,20 @@ public sealed class AgentWorker(
             .WithAutomaticReconnect([TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10)])
             .Build();
 
-        connection.On<AgentRegistration>(AgentProtocol.RegisteredEvent, registration =>
+        connection.On<AgentRegistration>(AgentProtocol.RegisteredEvent, async registration =>
+        {
             logger.LogInformation(
                 "Registered for {ComputerCode}; end action is {EndAction}.",
                 registration.ComputerCode,
-                registration.EndAction));
+                registration.EndAction);
+            await playerScreen.PublishRegistrationAsync(registration);
+        });
         connection.On<AgentCommand>(AgentProtocol.CommandEvent, async command =>
         {
             try
             {
                 var plan = await commandProcessor.PrepareAsync(command, CancellationToken.None);
+                await playerScreen.PublishCommandAsync(command);
                 await SendAcknowledgementAsync(connection, plan.InitialAcknowledgement);
                 if (plan.ExecuteAsync is not null)
                 {

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ArenaDesk.Contracts;
 
 namespace ArenaDesk.Agent;
 
@@ -25,4 +26,10 @@ public sealed class AgentOptions
     public string CommandExecutionMode { get; init; } = "LogOnly";
 
     public string StateDirectory { get; init; } = string.Empty;
+
+    [Required, RegularExpression(@"^[A-Za-z0-9._-]+$")]
+    public string PlayerPipeName { get; init; } = PlayerScreenProtocol.DefaultPipeName;
+
+    [Required, MinLength(32)]
+    public string PlayerAccessKey { get; init; } = string.Empty;
 }

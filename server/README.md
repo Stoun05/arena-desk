@@ -1,6 +1,6 @@
 # ArenaDesk server
 
-Stage 12 persists Agent commands in PostgreSQL in the same transaction as session changes. A separately protected Agent SignalR hub delivers pending commands immediately or after reconnect, records acknowledgements, and retries stale unacknowledged deliveries.
+Stage 13 includes the active session ID and ending time in Agent registration. This lets a restarted Agent restore the local WPF Player Screen countdown even when the original unlock command was already acknowledged.
 
 ## Requirements
 

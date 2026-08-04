@@ -5,6 +5,7 @@ on:
     paths:
       - "server/**"
       - "agent/**"
+      - "player/**"
       - "shared/**"
       - ".github/workflows/backend-ci.yml"
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - "server/**"
       - "agent/**"
+      - "player/**"
       - "shared/**"
       - ".github/workflows/backend-ci.yml"
   workflow_dispatch:
@@ -49,11 +51,13 @@ jobs:
         run: |
           dotnet restore server/ArenaDesk.Api/ArenaDesk.Api.csproj
           dotnet restore agent/ArenaDesk.Agent/ArenaDesk.Agent.csproj
+          dotnet restore player/ArenaDesk.Player/ArenaDesk.Player.csproj
 
       - name: Build
         run: |
           dotnet build server/ArenaDesk.Api/ArenaDesk.Api.csproj --configuration Release --no-restore --warnaserror
           dotnet build agent/ArenaDesk.Agent/ArenaDesk.Agent.csproj --configuration Release --no-restore --warnaserror
+          dotnet build player/ArenaDesk.Player/ArenaDesk.Player.csproj --configuration Release --no-restore --warnaserror
 
       - name: Apply initial database schema
         env:
@@ -107,7 +111,7 @@ jobs:
           fi
           curl --fail --silent --show-error \
             http://127.0.0.1:5080/api/v1/system/status | \
-            jq --exit-status '.stage == 12 and .database == "available"'
+            jq --exit-status '.stage == 13 and .database == "available"'
 
           admin_token=$(curl --fail --silent --show-error \
             --header "Content-Type: application/json" \

@@ -15,6 +15,8 @@ builder.Services
 builder.Services.AddSingleton<ProcessedCommandStore>();
 builder.Services.AddSingleton<WindowsCommandExecutor>();
 builder.Services.AddSingleton<AgentCommandProcessor>();
+builder.Services.AddSingleton<PlayerScreenChannel>();
+builder.Services.AddHostedService(services => services.GetRequiredService<PlayerScreenChannel>());
 builder.Services.AddHostedService<AgentWorker>();
 
 await builder.Build().RunAsync();

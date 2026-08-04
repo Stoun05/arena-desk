@@ -24,13 +24,16 @@ public sealed class AgentHub(
             return;
         }
 
-        var hasActiveSession = await database.Sessions.AnyAsync(session =>
+        var activeSession = await database.Sessions
+            .Where(session =>
             session.ComputerId == computer.Id &&
-            (session.Status == SessionStatus.Active || session.Status == SessionStatus.Ending));
+            (session.Status == SessionStatus.Active || session.Status == SessionStatus.Ending))
+            .OrderByDescending(session => session.StartedAtUtc)
+            .FirstOrDefaultAsync();
         var now = DateTimeOffset.UtcNow;
         computer.AgentId = agentId;
         computer.LastSeenAtUtc = now;
-        computer.Status = hasActiveSession ? ComputerStatus.Occupied : ComputerStatus.Available;
+        computer.Status = activeSession is not null ? ComputerStatus.Occupied : ComputerStatus.Available;
         computer.UpdatedAtUtc = now;
         await database.SaveChangesAsync();
 
@@ -41,7 +44,9 @@ public sealed class AgentHub(
             computer.Code,
             computer.DisplayName,
             computer.EndAction.ToString().ToLowerInvariant(),
-            now));
+            now,
+            activeSession?.Id,
+            activeSession?.EndsAtUtc));
         await DeliverQueuedCommandsAsync(computer.Id, includeRecentlyDelivered: true);
         await NotifyDashboardAsync(computer.Id, "agent-connected", now);
         logger.LogInformation("Agent {AgentId} connected to {ComputerCode}.", agentId, computer.Code);
