@@ -73,12 +73,13 @@ jobs:
             }
           }
 
-          & .\artifacts\ArenaDesk-Windows-x64\install.ps1 `
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\artifacts\ArenaDesk-Windows-x64\install.ps1 `
             -ApiBaseUrl 'https://api.example.com' `
             -ComputerCode 'PC-01' `
             -AgentId 'arena-pc-01' `
             -AgentAccessKey 'ci-agent-access-key-at-least-32-characters' `
             -PlayerAccessKey 'ci-player-access-key-at-least-32-characters' `
+            -SkipPlayerStart `
             -ValidateOnly
 
       - name: Upload Windows package

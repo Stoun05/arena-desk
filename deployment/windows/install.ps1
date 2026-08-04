@@ -22,14 +22,22 @@ param(
     [string]$PlayerAccessKey,
 
     [string]$PlayerUser = "$env:USERDOMAIN\$env:USERNAME",
-    [string]$PackageRoot = $PSScriptRoot,
+    [string]$PackageRoot = '',
     [string]$InstallRoot = "$env:ProgramFiles\ArenaDesk",
     [switch]$EnableSystemCommands,
+    [switch]$SkipPlayerStart,
     [switch]$ValidateOnly
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($PackageRoot)) {
+    $PackageRoot = $PSScriptRoot
+}
+if ([string]::IsNullOrWhiteSpace($PackageRoot)) {
+    throw 'PackageRoot could not be detected. Pass the extracted package directory explicitly.'
+}
 
 $serviceName = 'ArenaDeskAgent'
 $taskName = 'ArenaDesk Player Screen'
@@ -128,15 +136,20 @@ $taskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopI
 Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings -Description 'ArenaDesk locked screen and session timer' -Force | Out-Null
 
 Start-Service -Name $serviceName
-try {
-    Start-ScheduledTask -TaskName $taskName
-} catch {
-    Write-Warning 'Player Screen will start automatically at the next login.'
+if ($SkipPlayerStart) {
+    Write-Host 'Player Screen start was skipped for a safe pilot installation.' -ForegroundColor Yellow
+} else {
+    try {
+        Start-ScheduledTask -TaskName $taskName
+    } catch {
+        Write-Warning 'Player Screen will start automatically at the next login.'
+    }
 }
 
 Write-Host ''
 Write-Host 'ArenaDesk installation completed.' -ForegroundColor Green
 Write-Host "Service: $serviceName"
 Write-Host "Player task: $taskName ($PlayerUser)"
+Write-Host "Player started: $(-not $SkipPlayerStart)"
 Write-Host "Command mode: $commandMode"
 Write-Host 'Run verify.ps1 to check the installation.'

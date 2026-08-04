@@ -14,10 +14,11 @@ The GitHub Actions artifact `ArenaDesk-Windows-x64` contains self-contained Agen
   -ComputerCode 'PC-01' `
   -AgentId 'arena-pc-01' `
   -AgentAccessKey 'replace-with-the-backend-agent-key-32-chars-minimum' `
-  -PlayerAccessKey 'generate-a-different-local-key-32-chars-minimum'
+  -PlayerAccessKey 'generate-a-different-local-key-32-chars-minimum' `
+  -SkipPlayerStart
 ```
 
-The default command mode is `LogOnly`, so logout, sleep, and shutdown commands are recorded without changing Windows. Add `-EnableSystemCommands` only after the one-computer test passes.
+The default command mode is `LogOnly`, so logout, sleep, and shutdown commands are recorded without changing Windows. `-SkipPlayerStart` registers the login task without immediately opening the full-screen lock overlay, making the first installation recoverable while the service connection is verified. Start the task manually only after `verify.ps1` passes. Add `-EnableSystemCommands` only after the one-computer test passes.
 
 The installer creates:
 
