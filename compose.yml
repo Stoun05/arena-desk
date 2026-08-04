@@ -28,6 +28,14 @@ services:
       ArenaDesk__ClubName: ArenaDesk Demo Club
       ArenaDesk__ComputerLimit: 10
       Cors__AllowedOrigins__0: http://localhost:3000
+      Jwt__SigningKey: ${ARENA_JWT_SIGNING_KEY:?Set ARENA_JWT_SIGNING_KEY in .env}
+      Jwt__Issuer: ArenaDesk.Api
+      Jwt__Audience: ArenaDesk.Web
+      Jwt__ExpirationHours: 8
+      BootstrapUsers__AdministratorUsername: ${ARENA_ADMIN_USERNAME:-admin}
+      BootstrapUsers__AdministratorPassword: ${ARENA_ADMIN_PASSWORD:?Set ARENA_ADMIN_PASSWORD in .env}
+      BootstrapUsers__CashierUsername: ${ARENA_CASHIER_USERNAME:-cashier}
+      BootstrapUsers__CashierPassword: ${ARENA_CASHIER_PASSWORD:?Set ARENA_CASHIER_PASSWORD in .env}
     ports:
       - "5080:8080"
 

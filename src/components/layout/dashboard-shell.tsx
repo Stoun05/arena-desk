@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Banknote,
   BarChart3,
@@ -24,7 +24,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import type { UserRole } from "@/types/auth";
+import { clearSession, getStoredSession } from "@/services";
+import type { AuthUser, UserRole } from "@/types/auth";
 
 const navigation = [
   { label: "Esasy panel", icon: LayoutDashboard, active: true },
@@ -40,9 +41,9 @@ type DashboardShellProps = {
   children: ReactNode;
 };
 
-function ArenaLogo() {
+function ArenaLogo({ href }: { href: string }) {
   return (
-    <Link href="/dashboard" className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+    <Link href={href} className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
       <span className="grid size-10 place-items-center rounded-xl border border-indigo-400/25 bg-indigo-500/15">
         <MonitorCog aria-hidden="true" className="size-5 text-indigo-300" />
       </span>
@@ -54,7 +55,7 @@ function ArenaLogo() {
   );
 }
 
-function Navigation({ role }: { role: UserRole }) {
+function Navigation({ role, demo }: { role: UserRole; demo: boolean }) {
   return (
     <nav aria-label="Esasy navigasiýa" className="space-y-1">
       {navigation
@@ -66,7 +67,7 @@ function Navigation({ role }: { role: UserRole }) {
             : "flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-500";
 
           return item.active ? (
-            <Link key={item.label} href={`/dashboard?role=${role}`} className={className} aria-current="page">
+            <Link key={item.label} href={demo ? `/dashboard?demo=${role}` : "/dashboard"} className={className} aria-current="page">
               <Icon aria-hidden="true" className="size-4" />
               {item.label}
             </Link>
@@ -81,14 +82,15 @@ function Navigation({ role }: { role: UserRole }) {
   );
 }
 
-function SidebarContent({ role }: { role: UserRole }) {
+function SidebarContent({ user, demo, onLogout }: { user: AuthUser; demo: boolean; onLogout: () => void }) {
+  const role = user.role;
   const roleLabel = role === "admin" ? "Administrator" : "Kassir";
 
   return (
     <div className="flex h-full flex-col">
-      <ArenaLogo />
+      <ArenaLogo href={demo ? `/dashboard?demo=${role}` : "/dashboard"} />
       <Separator className="my-6 bg-white/10" />
-      <Navigation role={role} />
+      <Navigation role={role} demo={demo} />
 
       <div className="mt-auto rounded-2xl border border-white/10 bg-white/[0.03] p-3">
         <div className="flex items-center gap-3">
@@ -96,15 +98,13 @@ function SidebarContent({ role }: { role: UserRole }) {
             {role === "admin" ? "AD" : "KA"}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-slate-200">Demo ulanyjy</p>
+            <p className="truncate text-sm font-medium text-slate-200">{user.username}</p>
             <p className="truncate text-xs text-slate-500">{roleLabel}</p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" asChild className="mt-3 w-full justify-start text-slate-400 hover:text-white">
-          <Link href="/login">
-            <LogOut aria-hidden="true" data-icon="inline-start" />
-            Ulgamdan çyk
-          </Link>
+        <Button variant="ghost" size="sm" onClick={onLogout} className="mt-3 w-full justify-start text-slate-400 hover:text-white">
+          <LogOut aria-hidden="true" data-icon="inline-start" />
+          Ulgamdan çyk
         </Button>
       </div>
     </div>
@@ -112,14 +112,55 @@ function SidebarContent({ role }: { role: UserRole }) {
 }
 
 export function DashboardShell({ children }: DashboardShellProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const role: UserRole = searchParams.get("role") === "cashier" ? "cashier" : "admin";
-  const roleLabel = role === "admin" ? "Administrator" : "Kassir";
+  const demoValue = searchParams.get("demo");
+  const demoRole: UserRole | null = demoValue === "admin" || demoValue === "cashier" ? demoValue : null;
+  const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    if (demoRole) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      const session = getStoredSession();
+      if (!session) {
+        router.replace("/login");
+      } else {
+        setSessionUser(session.user);
+      }
+      setSessionChecked(true);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [demoRole, router]);
+
+  function logout() {
+    clearSession();
+    router.push("/login");
+  }
+
+  const user = demoRole
+    ? { id: "demo", username: "UI demo", role: demoRole }
+    : sessionUser;
+  const initialized = Boolean(demoRole) || sessionChecked;
+
+  if (!initialized || !user) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#070a12] text-sm text-slate-500">
+        Giriş barlanýar...
+      </div>
+    );
+  }
+
+  const roleLabel = user.role === "admin" ? "Administrator" : "Kassir";
 
   return (
     <div className="min-h-screen bg-[#070a12]">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-white/10 bg-[#090d17] p-5 lg:block">
-        <SidebarContent role={role} />
+        <SidebarContent user={user} demo={Boolean(demoRole)} onLogout={logout} />
       </aside>
 
       <div className="lg:pl-64">
@@ -135,7 +176,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 <SheetHeader className="sr-only">
                   <SheetTitle>ArenaDesk menýusy</SheetTitle>
                 </SheetHeader>
-                <SidebarContent role={role} />
+                <SidebarContent user={user} demo={Boolean(demoRole)} onLogout={logout} />
               </SheetContent>
             </Sheet>
             <div className="lg:hidden">
@@ -146,10 +187,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
           <div className="flex items-center gap-3">
             <span className="hidden rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-300 sm:inline-flex">
-              Web-panel işleýär
+              {demoRole ? "UI demo režimi" : "JWT bilen goragly"}
             </span>
             <div className="text-right">
-              <p className="text-xs font-medium text-slate-200">Demo ulanyjy</p>
+              <p className="text-xs font-medium text-slate-200">{user.username}</p>
               <p className="text-[11px] text-slate-500">{roleLabel}</p>
             </div>
           </div>
