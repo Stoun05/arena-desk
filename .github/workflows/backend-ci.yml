@@ -111,7 +111,7 @@ jobs:
           fi
           curl --fail --silent --show-error \
             http://127.0.0.1:5080/api/v1/system/status | \
-            jq --exit-status '.stage == 13 and .database == "available"'
+            jq --exit-status '.stage == 14 and .database == "available"'
 
           admin_token=$(curl --fail --silent --show-error \
             --header "Content-Type: application/json" \

@@ -1,6 +1,6 @@
 # ArenaDesk server
 
-Stage 13 includes the active session ID and ending time in Agent registration. This lets a restarted Agent restore the local WPF Player Screen countdown even when the original unlock command was already acknowledged.
+Stage 14 keeps the reconnect-safe Agent registration and adds a CI-built Windows deployment package. A restarted service can restore the local WPF Player Screen countdown even when the original unlock command was already acknowledged.
 
 ## Requirements
 

@@ -1,6 +1,6 @@
 # ArenaDesk Windows Agent
 
-Stage 13 connects the reconnect-safe Windows Agent to the local WPF Player Screen. Backend commands still arrive through the durable SignalR queue; the Agent now mirrors the active or locked state to the interactive user session through an access-key protected named pipe.
+Stage 14 runs the reconnect-safe Windows Agent as a LocalSystem service and connects it to the WPF Player Screen in the interactive user session. The named pipe grants authenticated local users transport access, while the per-computer access key still authenticates the Player handshake.
 
 The default `CommandExecutionMode` remains `LogOnly`, so development machines are never logged out or powered down. Set it explicitly to `System` only on a club computer where logout, sleep, and shutdown are intended. The Agent stores processed command IDs in `%ProgramData%\ArenaDesk\processed-commands.json` before invoking a system action, so redelivery cannot repeat the action. `unlock` and `sync-session` now open and update the Player Screen timer.
 

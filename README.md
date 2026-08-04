@@ -12,7 +12,7 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## Backend setup
 
-Stage 13 adds the WPF Player Screen used on each club computer. It communicates only with the local Windows Agent through an access-key protected named pipe, starts in a full-screen locked state, shows a compact live countdown during an active session, warns at ten and five minutes, and restores the current session after Agent or Player reconnect.
+Stage 14 packages the Windows Agent and WPF Player Screen as self-contained Windows x64 applications. The deployment scripts install the Agent as an automatic Windows service, start the Player Screen at interactive user login, protect local configuration, verify the installation, and support clean removal.
 
 ```bash
 cp .env.example .env
@@ -60,7 +60,7 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-The Stage 13 web panel includes:
+The Stage 14 web panel includes:
 
 - `/login` — JWT login connected to the API, plus clearly labelled admin/cashier UI previews for the static GitHub Pages deployment;
 - `/dashboard` — responsive sidebar, live-style summary cards, and 10 interactive computer station cards;
@@ -97,6 +97,10 @@ src/
 5. At the end of the session, the player is signed out and the computer returns to the locked screen.
 6. The session and payment are recorded in the report.
 
+## Windows package
+
+Every successful `Build Windows deployment package` workflow run produces the `ArenaDesk-Windows-x64` artifact. See [the Windows deployment guide](deployment/windows/README.md) for the one-computer installation, safe `LogOnly` trial, verification, and removal commands.
+
 ## Status
 
-Stages 1–13 are complete: the dashboard, API, PostgreSQL persistence, JWT roles, transactional session/payment operations, real-time updates, durable Agent delivery, duplicate protection, guarded Windows executor, and reconnect-safe WPF Player Screen are ready. A one-computer Windows installation and recovery test is the next milestone.
+Stages 1–14 are complete in code: the dashboard, API, PostgreSQL persistence, JWT roles, transactional session/payment operations, real-time updates, durable Agent delivery, duplicate protection, guarded Windows executor, reconnect-safe WPF Player Screen, and Windows deployment package are ready. Running the package on one physical Windows computer is the next acceptance checkpoint.
