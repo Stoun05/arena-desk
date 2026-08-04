@@ -12,7 +12,7 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## Backend setup
 
-Stage 9 connects the authenticated dashboard to real computer, tariff, session, and payment APIs. Session start, extension, completion, prices, and cash/card payments now persist in PostgreSQL.
+Stage 10 adds authenticated SignalR updates to the Stage 9 PostgreSQL operations. When one cashier starts, extends, or completes a session, every connected dashboard is notified and refreshes its computer state from the API.
 
 ```bash
 cp .env.example .env
@@ -54,7 +54,7 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-The Stage 9 web panel includes:
+The Stage 10 web panel includes:
 
 - `/login` — JWT login connected to the API, plus clearly labelled admin/cashier UI previews for the static GitHub Pages deployment;
 - `/dashboard` — responsive sidebar, live-style summary cards, and 10 interactive computer station cards;
@@ -62,6 +62,7 @@ The Stage 9 web panel includes:
 - a station detail panel with customer, remaining time, tariff, and current charge;
 - a new-session flow with duration, matching tariff, cash/card payment, automatic total, and ending-time calculation;
 - authenticated controls that persist session start, 30-minute extensions, completion, and payments;
+- an authenticated SignalR connection with automatic reconnect and live computer-grid refresh across open dashboards;
 - clearly labelled UI-demo navigation for reviewing the static GitHub Pages deployment without a hosted API.
 
 ### Frontend structure
@@ -91,4 +92,4 @@ src/
 
 ## Status
 
-Stages 1–9 are complete: the MVP requirements, frontend foundation, responsive navigation, interactive 10-computer dashboard, ASP.NET Core API, PostgreSQL/Entity Framework Core persistence, JWT roles, and transactional session/tariff/payment operations are ready. Real-time SignalR updates are the next milestone.
+Stages 1–10 are complete: the MVP requirements, frontend foundation, responsive navigation, interactive 10-computer dashboard, ASP.NET Core API, PostgreSQL/Entity Framework Core persistence, JWT roles, transactional session/tariff/payment operations, and real-time SignalR dashboard updates are ready. The Windows Agent command channel is the next milestone.
