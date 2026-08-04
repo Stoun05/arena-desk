@@ -72,7 +72,16 @@ jobs:
         run: |
           dotnet run --project server/ArenaDesk.Api/ArenaDesk.Api.csproj --configuration Release --no-build > /tmp/arena-api.log 2>&1 &
           api_pid=$!
-          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          on_exit() {
+            exit_code=$?
+            if [ "$exit_code" -ne 0 ]; then
+              printf 'ArenaDesk API log after CI failure:\n'
+              cat /tmp/arena-api.log
+            fi
+            kill "$api_pid" 2>/dev/null || true
+            exit "$exit_code"
+          }
+          trap on_exit EXIT
           ready=false
           for attempt in {1..20}; do
             if curl --fail --silent --show-error http://127.0.0.1:5080/health/ready; then
@@ -106,9 +115,11 @@ jobs:
             http://127.0.0.1:5080/api/v1/admin/users)
           test "$cashier_status" = "403"
 
+          printf 'Checking computer list...\n'
           computer_id=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $admin_token" \
             http://127.0.0.1:5080/api/v1/computers | jq --raw-output '.[0].id')
+          printf 'Starting Standard session...\n'
           start_response=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $admin_token" \
             --header "Content-Type: application/json" \
@@ -117,6 +128,7 @@ jobs:
           session_id=$(jq --raw-output '.sessionId' <<< "$start_response")
           jq --exit-status '.status == "active" and .durationMinutes == 60 and .totalPrice == 15' <<< "$start_response"
 
+          printf 'Extending session...\n'
           extend_response=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $admin_token" \
             --header "Content-Type: application/json" \
@@ -124,6 +136,7 @@ jobs:
             http://127.0.0.1:5080/api/v1/sessions/$session_id/extend)
           jq --exit-status '.durationMinutes == 90 and .totalPrice == 22.5' <<< "$extend_response"
 
+          printf 'Completing session...\n'
           complete_response=$(curl --fail --silent --show-error \
             --request POST \
             --header "Authorization: Bearer $admin_token" \
