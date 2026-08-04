@@ -36,6 +36,7 @@ services:
       BootstrapUsers__AdministratorPassword: ${ARENA_ADMIN_PASSWORD:?Set ARENA_ADMIN_PASSWORD in .env}
       BootstrapUsers__CashierUsername: ${ARENA_CASHIER_USERNAME:-cashier}
       BootstrapUsers__CashierPassword: ${ARENA_CASHIER_PASSWORD:?Set ARENA_CASHIER_PASSWORD in .env}
+      AgentChannel__AccessKey: ${ARENA_AGENT_ACCESS_KEY:?Set ARENA_AGENT_ACCESS_KEY in .env}
     ports:
       - "5080:8080"
 

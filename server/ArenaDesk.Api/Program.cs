@@ -23,6 +23,7 @@ builder.WebHost.ConfigureKestrel(options =>
 
 builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<AgentConnectionRegistry>();
 
 var connectionString = builder.Configuration.GetConnectionString("ArenaDesk");
 if (string.IsNullOrWhiteSpace(connectionString))
@@ -46,6 +47,11 @@ builder.Services
 builder.Services
     .AddOptions<BootstrapUsersOptions>()
     .Bind(builder.Configuration.GetSection(BootstrapUsersOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services
+    .AddOptions<AgentChannelOptions>()
+    .Bind(builder.Configuration.GetSection(AgentChannelOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
@@ -162,6 +168,7 @@ app.Use(async (context, next) =>
 app.UseHttpsRedirection();
 app.UseCors("Dashboard");
 app.UseRateLimiter();
+app.UseMiddleware<AgentChannelAuthenticationMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -187,6 +194,7 @@ app.MapAdminEndpoints();
 app.MapOperationalEndpoints();
 app.MapHub<OperationsHub>("/hubs/operations")
     .RequireAuthorization();
+app.MapHub<AgentHub>("/hubs/agents");
 
 await DatabaseInitializer.InitializeAsync(app.Services);
 

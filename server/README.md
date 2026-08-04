@@ -1,6 +1,6 @@
 # ArenaDesk server
 
-Stage 10 adds an authenticated SignalR hub to the PostgreSQL session operations. Starting, extending, or completing a session commits its database transaction first and then broadcasts a computer-state change to every connected dashboard.
+Stage 11 adds a separately protected Agent SignalR hub. A Windows Agent binds its unique ID to one configured computer, sends heartbeats, and receives targeted commands after session transactions commit.
 
 ## Requirements
 
@@ -32,6 +32,7 @@ The local server listens on `http://localhost:5080`.
 - `POST /api/v1/sessions/{id}/extend` — atomically add time and another payment
 - `POST /api/v1/sessions/{id}/complete` — complete the session and release the computer
 - `/hubs/operations` — authenticated SignalR hub for computer-state changes
+- `/hubs/agents` — shared-key protected Windows Agent registration, heartbeat, acknowledgement, and command channel
 
 ## Configuration
 
@@ -45,5 +46,6 @@ Configuration can be overridden with standard ASP.NET Core environment variables
 - `Jwt__SigningKey`, `Jwt__Issuer`, `Jwt__Audience`, `Jwt__ExpirationHours`
 - `BootstrapUsers__AdministratorUsername`, `BootstrapUsers__AdministratorPassword`
 - `BootstrapUsers__CashierUsername`, `BootstrapUsers__CashierPassword`
+- `AgentChannel__AccessKey`
 
 The database schema in `server/database/001_initial_schema.sql` creates six tables and seeds ten computers plus Standard/VIP tariffs. On API startup, missing administrator and cashier accounts are created with hashed passwords from configuration. Values in `.env.example` are local-only examples and must be replaced outside development.
