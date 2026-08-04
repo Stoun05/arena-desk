@@ -131,74 +131,74 @@ public static class OperationalEndpoints
         }
 
         var cashierId = GetUserId(principal);
-        await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var computer = await database.Computers.SingleOrDefaultAsync(item => item.Id == request.ComputerId, cancellationToken);
-        if (computer is null)
-        {
-            return Results.NotFound();
-        }
-
-        var alreadyActive = await database.Sessions.AnyAsync(
-            session => session.ComputerId == computer.Id &&
-                (session.Status == SessionStatus.Active || session.Status == SessionStatus.Ending),
-            cancellationToken);
-        if (alreadyActive || computer.Status is ComputerStatus.Offline or ComputerStatus.Locking)
-        {
-            return Conflict("Bu kompýuter täze sessiýa üçin taýýar däl.");
-        }
-
-        var tariff = await database.Tariffs.SingleOrDefaultAsync(
-            item => item.ComputerTier == computer.Tier && item.IsActive,
-            cancellationToken);
-        if (tariff is null)
-        {
-            return Conflict("Bu kompýuter görnüşi üçin aktiw tarif tapylmady.");
-        }
-
-        var now = DateTimeOffset.UtcNow;
-        var price = CalculatePrice(tariff.HourlyRate, request.DurationMinutes);
-        var session = new Session
-        {
-            ComputerId = computer.Id,
-            TariffId = tariff.Id,
-            CashierId = cashierId,
-            CustomerName = NormalizeCustomerName(request.CustomerName),
-            StartedAtUtc = now,
-            EndsAtUtc = now.AddMinutes(request.DurationMinutes),
-            InitialDurationMinutes = request.DurationMinutes,
-            Status = SessionStatus.Active,
-            HourlyRateSnapshot = tariff.HourlyRate,
-            InitialPrice = price,
-            FinalPrice = price,
-            Currency = tariff.Currency,
-        };
-        database.Sessions.Add(session);
-        database.Payments.Add(new Payment
-        {
-            Session = session,
-            CashierId = cashierId,
-            Amount = price,
-            Currency = tariff.Currency,
-            Method = paymentMethod,
-            PaidAtUtc = now,
-        });
-        computer.Status = ComputerStatus.Occupied;
-        computer.UpdatedAtUtc = now;
-        database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Started", "Session", session.Id, context,
-            new { computerId = computer.Id, request.DurationMinutes, price, paymentMethod = request.PaymentMethod }));
-
         try
         {
-            await database.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            return await ExecuteInTransactionAsync(database, cancellationToken, async () =>
+            {
+                var computer = await database.Computers.SingleOrDefaultAsync(item => item.Id == request.ComputerId, cancellationToken);
+                if (computer is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var alreadyActive = await database.Sessions.AnyAsync(
+                    session => session.ComputerId == computer.Id &&
+                        (session.Status == SessionStatus.Active || session.Status == SessionStatus.Ending),
+                    cancellationToken);
+                if (alreadyActive || computer.Status is ComputerStatus.Offline or ComputerStatus.Locking)
+                {
+                    return Conflict("Bu kompýuter täze sessiýa üçin taýýar däl.");
+                }
+
+                var tariff = await database.Tariffs.SingleOrDefaultAsync(
+                    item => item.ComputerTier == computer.Tier && item.IsActive,
+                    cancellationToken);
+                if (tariff is null)
+                {
+                    return Conflict("Bu kompýuter görnüşi üçin aktiw tarif tapylmady.");
+                }
+
+                var now = DateTimeOffset.UtcNow;
+                var price = CalculatePrice(tariff.HourlyRate, request.DurationMinutes);
+                var session = new Session
+                {
+                    ComputerId = computer.Id,
+                    TariffId = tariff.Id,
+                    CashierId = cashierId,
+                    CustomerName = NormalizeCustomerName(request.CustomerName),
+                    StartedAtUtc = now,
+                    EndsAtUtc = now.AddMinutes(request.DurationMinutes),
+                    InitialDurationMinutes = request.DurationMinutes,
+                    Status = SessionStatus.Active,
+                    HourlyRateSnapshot = tariff.HourlyRate,
+                    InitialPrice = price,
+                    FinalPrice = price,
+                    Currency = tariff.Currency,
+                };
+                database.Sessions.Add(session);
+                database.Payments.Add(new Payment
+                {
+                    Session = session,
+                    CashierId = cashierId,
+                    Amount = price,
+                    Currency = tariff.Currency,
+                    Method = paymentMethod,
+                    PaidAtUtc = now,
+                });
+                computer.Status = ComputerStatus.Occupied;
+                computer.UpdatedAtUtc = now;
+                database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Started", "Session", session.Id, context,
+                    new { computerId = computer.Id, request.DurationMinutes, price, paymentMethod = request.PaymentMethod }));
+
+                await database.SaveChangesAsync(cancellationToken);
+                var response = ToResponse(session);
+                return Results.Created($"/api/v1/sessions/{session.Id}", response);
+            });
         }
         catch (DbUpdateException)
         {
             return Conflict("Bu kompýuterde eýýäm aktiw sessiýa bar.");
         }
-
-        var response = ToResponse(session);
-        return Results.Created($"/api/v1/sessions/{session.Id}", response);
     }
 
     private static async Task<IResult> ExtendSessionAsync(
@@ -215,43 +215,44 @@ public static class OperationalEndpoints
         }
 
         var cashierId = GetUserId(principal);
-        await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var session = await database.Sessions
-            .Include(item => item.Computer)
-            .SingleOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
-        if (session is null)
+        return await ExecuteInTransactionAsync(database, cancellationToken, async () =>
         {
-            return Results.NotFound();
-        }
-        if (session.Status is not (SessionStatus.Active or SessionStatus.Ending))
-        {
-            return Conflict("Diňe aktiw sessiýany uzaldyp bolýar.");
-        }
+            var session = await database.Sessions
+                .Include(item => item.Computer)
+                .SingleOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
+            if (session is null)
+            {
+                return Results.NotFound();
+            }
+            if (session.Status is not (SessionStatus.Active or SessionStatus.Ending))
+            {
+                return Conflict("Diňe aktiw sessiýany uzaldyp bolýar.");
+            }
 
-        var now = DateTimeOffset.UtcNow;
-        var extraPrice = CalculatePrice(session.HourlyRateSnapshot, request.DurationMinutes);
-        session.EndsAtUtc = (session.EndsAtUtc > now ? session.EndsAtUtc : now).AddMinutes(request.DurationMinutes);
-        session.AddedDurationMinutes += request.DurationMinutes;
-        session.FinalPrice += extraPrice;
-        session.Status = SessionStatus.Active;
-        session.UpdatedAtUtc = now;
-        session.Computer.Status = ComputerStatus.Occupied;
-        session.Computer.UpdatedAtUtc = now;
-        database.Payments.Add(new Payment
-        {
-            SessionId = session.Id,
-            CashierId = cashierId,
-            Amount = extraPrice,
-            Currency = session.Currency,
-            Method = paymentMethod,
-            PaidAtUtc = now,
+            var now = DateTimeOffset.UtcNow;
+            var extraPrice = CalculatePrice(session.HourlyRateSnapshot, request.DurationMinutes);
+            session.EndsAtUtc = (session.EndsAtUtc > now ? session.EndsAtUtc : now).AddMinutes(request.DurationMinutes);
+            session.AddedDurationMinutes += request.DurationMinutes;
+            session.FinalPrice += extraPrice;
+            session.Status = SessionStatus.Active;
+            session.UpdatedAtUtc = now;
+            session.Computer.Status = ComputerStatus.Occupied;
+            session.Computer.UpdatedAtUtc = now;
+            database.Payments.Add(new Payment
+            {
+                SessionId = session.Id,
+                CashierId = cashierId,
+                Amount = extraPrice,
+                Currency = session.Currency,
+                Method = paymentMethod,
+                PaidAtUtc = now,
+            });
+            database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Extended", "Session", session.Id, context,
+                new { request.DurationMinutes, extraPrice, paymentMethod = request.PaymentMethod }));
+
+            await database.SaveChangesAsync(cancellationToken);
+            return Results.Ok(ToResponse(session));
         });
-        database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Extended", "Session", session.Id, context,
-            new { request.DurationMinutes, extraPrice, paymentMethod = request.PaymentMethod }));
-
-        await database.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return Results.Ok(ToResponse(session));
     }
 
     private static async Task<IResult> CompleteSessionAsync(
@@ -262,29 +263,47 @@ public static class OperationalEndpoints
         CancellationToken cancellationToken)
     {
         var cashierId = GetUserId(principal);
-        await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var session = await database.Sessions
-            .Include(item => item.Computer)
-            .SingleOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
-        if (session is null)
+        return await ExecuteInTransactionAsync(database, cancellationToken, async () =>
         {
-            return Results.NotFound();
-        }
-        if (session.Status is not (SessionStatus.Active or SessionStatus.Ending))
-        {
-            return Conflict("Bu sessiýa eýýäm tamamlandy.");
-        }
+            var session = await database.Sessions
+                .Include(item => item.Computer)
+                .SingleOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
+            if (session is null)
+            {
+                return Results.NotFound();
+            }
+            if (session.Status is not (SessionStatus.Active or SessionStatus.Ending))
+            {
+                return Conflict("Bu sessiýa eýýäm tamamlandy.");
+            }
 
-        var now = DateTimeOffset.UtcNow;
-        session.Status = SessionStatus.Completed;
-        session.CompletedAtUtc = now;
-        session.UpdatedAtUtc = now;
-        session.Computer.Status = ComputerStatus.Available;
-        session.Computer.UpdatedAtUtc = now;
-        database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Completed", "Session", session.Id, context));
-        await database.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return Results.Ok(ToResponse(session));
+            var now = DateTimeOffset.UtcNow;
+            session.Status = SessionStatus.Completed;
+            session.CompletedAtUtc = now;
+            session.UpdatedAtUtc = now;
+            session.Computer.Status = ComputerStatus.Available;
+            session.Computer.UpdatedAtUtc = now;
+            database.AuditLogs.Add(CreateAuditLog(cashierId, "Session.Completed", "Session", session.Id, context));
+            await database.SaveChangesAsync(cancellationToken);
+            return Results.Ok(ToResponse(session));
+        });
+    }
+
+    private static Task<IResult> ExecuteInTransactionAsync(
+        ArenaDeskDbContext database,
+        CancellationToken cancellationToken,
+        Func<Task<IResult>> operation)
+    {
+        var executionStrategy = database.Database.CreateExecutionStrategy();
+        return executionStrategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await database.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+            var result = await operation();
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        });
     }
 
     private static SessionOperationResponse ToResponse(Session session) => new(
