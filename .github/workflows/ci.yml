@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend lint and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  backend:
+    name: Backend build and API integration
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: arena_ci
+          POSTGRES_USER: arena_ci
+          POSTGRES_PASSWORD: arena-ci-database-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U arena_ci -d arena_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://127.0.0.1:8080
+      ConnectionStrings__DefaultConnection: Host=127.0.0.1;Port=5432;Database=arena_ci;Username=arena_ci;Password=arena-ci-database-password
+      Jwt__Issuer: ArenaDesk.Api.CI
+      Jwt__Audience: ArenaDesk.Web.CI
+      Jwt__Key: arena-desk-ci-only-signing-key-2026-do-not-use-in-production
+      Cors__AllowedOrigins__0: http://localhost:3000
+      Seed__AdminEmail: admin@arena.test
+      Seed__AdminPassword: ArenaDesk-CI-Admin-2026!
+      Seed__CashierEmail: cashier@arena.test
+      Seed__CashierPassword: ArenaDesk-CI-Cashier-2026!
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore backend dependencies
+        run: dotnet restore server/ArenaDesk.Api/ArenaDesk.Api.csproj
+
+      - name: Build backend
+        run: dotnet build server/ArenaDesk.Api/ArenaDesk.Api.csproj --configuration Release --no-restore
+
+      - name: Start API
+        run: |
+          dotnet run \
+            --project server/ArenaDesk.Api/ArenaDesk.Api.csproj \
+            --configuration Release \
+            --no-build \
+            > "${RUNNER_TEMP}/arena-api.log" 2>&1 &
+          echo $! > "${RUNNER_TEMP}/arena-api.pid"
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8080/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "ArenaDesk API did not become healthy in time."
+          cat "${RUNNER_TEMP}/arena-api.log"
+          exit 1
+
+      - name: Test authenticated session workflow
+        run: |
+          api_url="http://127.0.0.1:8080/api"
+          cookie_jar="${RUNNER_TEMP}/arena-cookies.txt"
+
+          curl --fail --silent --show-error \
+            --cookie-jar "${cookie_jar}" \
+            --header "Content-Type: application/json" \
+            --data '{"email":"admin@arena.test","password":"ArenaDesk-CI-Admin-2026!"}' \
+            "${api_url}/auth/login" \
+            | jq --exit-status '.role == "admin"' > /dev/null
+
+          curl --fail --silent --show-error \
+            --cookie "${cookie_jar}" \
+            "${api_url}/auth/me" \
+            | jq --exit-status '.email == "admin@arena.test"' > /dev/null
+
+          computer_id=$(curl --fail --silent --show-error \
+            --cookie "${cookie_jar}" \
+            "${api_url}/computers" \
+            | jq --exit-status --raw-output '[.[] | select(.status == "available")][0].id')
+
+          tariff_id=$(curl --fail --silent --show-error \
+            --cookie "${cookie_jar}" \
+            "${api_url}/tariffs" \
+            | jq --exit-status --raw-output '.[0].id')
+
+          session_id=$(curl --fail --silent --show-error \
+            --cookie "${cookie_jar}" \
+            --header "Content-Type: application/json" \
+            --data "{\"computerId\":\"${computer_id}\",\"tariffId\":\"${tariff_id}\",\"customerName\":\"CI müşderi\",\"minutes\":60}" \
+            "${api_url}/sessions" \
+            | jq --exit-status --raw-output '.id')
+
+          curl --fail --silent --show-error \
+            --cookie "${cookie_jar}" \
+            --header "Content-Type: application/json" \
+            --data '{"minutes":30}' \
+            "${api_url}/sessions/${session_id}/extend" \
+            | jq --exit-status '.totalPrice > 0' > /dev/null
+
+          curl --fail --silent --show-error \
+            --cookie "${cookie_jar}" \
+            --request POST \
+            "${api_url}/sessions/${session_id}/finish"
+
+          curl --fail --silent --show-error \
+            --cookie "${cookie_jar}" \
+            "${api_url}/computers" \
+            | jq --exit-status --arg id "${computer_id}" \
+              '.[] | select(.id == $id) | .status == "available"' > /dev/null
+
+      - name: Print API log on failure
+        if: failure()
+        run: cat "${RUNNER_TEMP}/arena-api.log" || true
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/arena-api.pid" ]; then
+            kill "$(cat "${RUNNER_TEMP}/arena-api.pid")" || true
+          fi

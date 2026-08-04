@@ -1,5 +1,7 @@
 # ArenaDesk
 
+[![CI](https://github.com/Stoun05/arena-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/Stoun05/arena-desk/actions/workflows/ci.yml)
+
 ArenaDesk is a management platform for gaming clubs and internet cafés. It is designed to manage timed computer sessions, customer access, tariffs, payments, sales, games, and operational reports from one dashboard.
 
 ## Current milestone
@@ -56,6 +58,15 @@ dotnet build server/ArenaDesk.Api/ArenaDesk.Api.csproj
 ```
 
 API health check: `http://localhost:8080/health`.
+
+## Continuous integration
+
+GitHub Actions validates every pull request and every push to `main` with two independent jobs:
+
+- frontend dependency installation, linting, and production build
+- backend restore/build plus an authenticated API integration test against PostgreSQL
+
+The integration test signs in as the seeded administrator, reads computers and tariffs, starts a session, extends it, finishes it, and confirms that the computer becomes available again.
 
 ## Planned architecture
 
