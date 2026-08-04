@@ -67,10 +67,34 @@ public sealed class AgentWorker(
                 registration.EndAction));
         connection.On<AgentCommand>(AgentProtocol.CommandEvent, async command =>
         {
-            var acknowledgement = await commandProcessor.ProcessAsync(command, CancellationToken.None);
-            if (connection.State == HubConnectionState.Connected)
+            try
             {
-                await connection.SendAsync("AcknowledgeCommand", acknowledgement);
+                var plan = await commandProcessor.PrepareAsync(command, CancellationToken.None);
+                await SendAcknowledgementAsync(connection, plan.InitialAcknowledgement);
+                if (plan.ExecuteAsync is not null)
+                {
+                    try
+                    {
+                        await plan.ExecuteAsync(CancellationToken.None);
+                        await SendAcknowledgementAsync(
+                            connection,
+                            AgentCommandProcessor.Acknowledge(command, "completed"));
+                    }
+                    catch (Exception exception)
+                    {
+                        logger.LogError(exception, "System command {CommandId} failed.", command.CommandId);
+                        await SendAcknowledgementAsync(
+                            connection,
+                            AgentCommandProcessor.Acknowledge(command, "failed", exception.Message));
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception, "Command {CommandId} could not be prepared safely.", command.CommandId);
+                await SendAcknowledgementAsync(
+                    connection,
+                    AgentCommandProcessor.Acknowledge(command, "failed", exception.Message));
             }
         });
         connection.Reconnecting += exception =>
@@ -85,5 +109,27 @@ public sealed class AgentWorker(
         };
 
         return connection;
+    }
+
+    private async Task SendAcknowledgementAsync(
+        HubConnection connection,
+        AgentCommandAcknowledgement acknowledgement)
+    {
+        if (connection.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        try
+        {
+            await connection.SendAsync("AcknowledgeCommand", acknowledgement);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Acknowledgement for command {CommandId} will be recovered after reconnect.",
+                acknowledgement.CommandId);
+        }
     }
 }

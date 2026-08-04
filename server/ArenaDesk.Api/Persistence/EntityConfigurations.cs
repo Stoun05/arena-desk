@@ -154,3 +154,31 @@ public sealed class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
         builder.HasIndex(entity => new { entity.EntityType, entity.EntityId }).HasDatabaseName("ix_audit_logs_entity");
     }
 }
+
+public sealed class AgentCommandRecordConfiguration : IEntityTypeConfiguration<AgentCommandRecord>
+{
+    public void Configure(EntityTypeBuilder<AgentCommandRecord> builder)
+    {
+        builder.ToTable("agent_commands");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).HasColumnName("id");
+        builder.Property(entity => entity.ComputerId).HasColumnName("computer_id");
+        builder.Property(entity => entity.SessionId).HasColumnName("session_id");
+        builder.Property(entity => entity.Type).HasColumnName("type").HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.EndsAtUtc).HasColumnName("ends_at_utc");
+        builder.Property(entity => entity.EndAction).HasColumnName("end_action").HasMaxLength(16);
+        builder.Property(entity => entity.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20);
+        builder.Property(entity => entity.CreatedAtUtc).HasColumnName("created_at_utc");
+        builder.Property(entity => entity.DeliveredAtUtc).HasColumnName("delivered_at_utc");
+        builder.Property(entity => entity.AcknowledgedAtUtc).HasColumnName("acknowledged_at_utc");
+        builder.Property(entity => entity.Error).HasColumnName("error").HasMaxLength(500);
+
+        builder.HasOne(entity => entity.Computer).WithMany()
+            .HasForeignKey(entity => entity.ComputerId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(entity => entity.Session).WithMany()
+            .HasForeignKey(entity => entity.SessionId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(entity => new { entity.ComputerId, entity.Status, entity.CreatedAtUtc })
+            .HasDatabaseName("ix_agent_commands_delivery");
+        builder.HasIndex(entity => entity.SessionId).HasDatabaseName("ix_agent_commands_session_id");
+    }
+}

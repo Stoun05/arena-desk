@@ -42,6 +42,7 @@ public sealed class AgentHub(
             computer.DisplayName,
             computer.EndAction.ToString().ToLowerInvariant(),
             now));
+        await DeliverQueuedCommandsAsync(computer.Id, includeRecentlyDelivered: true);
         await NotifyDashboardAsync(computer.Id, "agent-connected", now);
         logger.LogInformation("Agent {AgentId} connected to {ComputerCode}.", agentId, computer.Code);
 
@@ -73,18 +74,35 @@ public sealed class AgentHub(
         computer.LastSeenAtUtc = DateTimeOffset.UtcNow;
         computer.UpdatedAtUtc = computer.LastSeenAtUtc.Value;
         await database.SaveChangesAsync();
+        await DeliverQueuedCommandsAsync(computerId, includeRecentlyDelivered: false);
         return new AgentHeartbeatResponse(computer.LastSeenAtUtc.Value);
     }
 
-    public Task AcknowledgeCommand(AgentCommandAcknowledgement acknowledgement)
+    public async Task AcknowledgeCommand(AgentCommandAcknowledgement acknowledgement)
     {
         var computerId = GetComputerId();
+        var command = await database.AgentCommands.SingleOrDefaultAsync(item =>
+            item.Id == acknowledgement.CommandId && item.ComputerId == computerId);
+        if (command is null)
+        {
+            throw new HubException("Agent command was not found.");
+        }
+
+        var normalizedStatus = acknowledgement.Status.Trim().ToLowerInvariant();
+        command.Status = normalizedStatus is "failed" or "rejected"
+            ? AgentCommandStatus.Failed
+            : AgentCommandStatus.Acknowledged;
+        command.AcknowledgedAtUtc = acknowledgement.AcknowledgedAtUtc;
+        command.Error = string.IsNullOrWhiteSpace(acknowledgement.Error)
+            ? null
+            : acknowledgement.Error[..Math.Min(acknowledgement.Error.Length, 500)];
+        await database.SaveChangesAsync();
         logger.LogInformation(
             "Agent for computer {ComputerId} acknowledged command {CommandId} with {Status}.",
             computerId,
             acknowledgement.CommandId,
             acknowledgement.Status);
-        return NotifyDashboardAsync(computerId, $"agent-command-{acknowledgement.Status}", acknowledgement.AcknowledgedAtUtc);
+        await NotifyDashboardAsync(computerId, $"agent-command-{normalizedStatus}", acknowledgement.AcknowledgedAtUtc);
     }
 
     private Guid GetComputerId()
@@ -101,4 +119,31 @@ public sealed class AgentHub(
         operationsHub.Clients.All.SendAsync(
             OperationsHub.ComputerStateChangedEvent,
             new ComputerStateChangedResponse(computerId, action, occurredAtUtc));
+
+    private async Task DeliverQueuedCommandsAsync(Guid computerId, bool includeRecentlyDelivered)
+    {
+        var retryBefore = DateTimeOffset.UtcNow.AddSeconds(-30);
+        var commands = await database.AgentCommands
+            .Where(command => command.ComputerId == computerId &&
+                (command.Status == AgentCommandStatus.Pending ||
+                    (command.Status == AgentCommandStatus.Delivered &&
+                        (includeRecentlyDelivered || command.DeliveredAtUtc <= retryBefore))))
+            .OrderBy(command => command.CreatedAtUtc)
+            .Take(50)
+            .ToListAsync();
+        foreach (var command in commands)
+        {
+            command.Status = AgentCommandStatus.Delivered;
+            command.DeliveredAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        if (commands.Count > 0)
+        {
+            await database.SaveChangesAsync();
+            foreach (var command in commands)
+            {
+                await Clients.Caller.SendAsync(AgentProtocol.CommandEvent, command.ToContract());
+            }
+        }
+    }
 }

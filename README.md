@@ -12,7 +12,7 @@ ArenaDesk is a planned management platform for gaming clubs and internet cafés.
 
 ## Backend setup
 
-Stage 11 adds the first Windows Agent command channel. Each configured .NET Worker Agent authenticates with a separate shared key, binds to one computer, sends heartbeats, and receives targeted unlock, session-sync, logout, sleep, or shutdown command envelopes after database operations commit.
+Stage 12 makes the Windows Agent channel durable. Session commands are committed to PostgreSQL with the business operation, delivered again after an offline Agent reconnects, and acknowledged by the target computer. The Agent records processed command IDs locally before guarded Windows actions, preventing a reconnect from executing the same logout, sleep, or shutdown twice.
 
 ```bash
 cp .env.example .env
@@ -21,6 +21,12 @@ docker compose up --build
 ```
 
 Then verify `http://localhost:5080/api/v1/system/status`, `http://localhost:5080/health/live`, and `http://localhost:5080/health/ready`.
+
+For an existing PostgreSQL volume, apply the new queue migration once:
+
+```bash
+docker compose exec -T postgres psql -U arena_desk -d arena_desk < server/database/002_agent_commands.sql
+```
 
 Local development accounts from `.env.example` are `admin / Admin123!` and `cashier / Cashier123!`. Replace these examples and the JWT signing key before using ArenaDesk outside local development.
 
@@ -54,7 +60,7 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-The Stage 11 web panel includes:
+The Stage 12 web panel includes:
 
 - `/login` — JWT login connected to the API, plus clearly labelled admin/cashier UI previews for the static GitHub Pages deployment;
 - `/dashboard` — responsive sidebar, live-style summary cards, and 10 interactive computer station cards;
@@ -63,7 +69,7 @@ The Stage 11 web panel includes:
 - a new-session flow with duration, matching tariff, cash/card payment, automatic total, and ending-time calculation;
 - authenticated controls that persist session start, 30-minute extensions, completion, and payments;
 - an authenticated SignalR connection with automatic reconnect and live computer-grid refresh across open dashboards;
-- a visible Windows Agent command-channel status alongside the API, SignalR, and PostgreSQL services;
+- a visible Windows Agent offline-queue and guarded-executor status alongside the API, SignalR, and PostgreSQL services;
 - clearly labelled UI-demo navigation for reviewing the static GitHub Pages deployment without a hosted API.
 
 ### Frontend structure
@@ -93,4 +99,4 @@ src/
 
 ## Status
 
-Stages 1–11 are complete: the MVP requirements, dashboard, ASP.NET Core API, PostgreSQL persistence, JWT roles, transactional session/payment operations, real-time dashboard updates, and the authenticated Windows Agent command channel are ready. The guarded Windows command executor and offline command recovery are the next milestone.
+Stages 1–12 are complete: the MVP requirements, dashboard, ASP.NET Core API, PostgreSQL persistence, JWT roles, transactional session/payment operations, real-time dashboard updates, durable Agent command delivery, local duplicate protection, and the opt-in Windows executor are ready. The locked player screen is the next milestone.

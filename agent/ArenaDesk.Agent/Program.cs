@@ -7,7 +7,13 @@ builder.Services
     .AddOptions<AgentOptions>()
     .Bind(builder.Configuration.GetSection(AgentOptions.SectionName))
     .ValidateDataAnnotations()
+    .Validate(
+        options => string.Equals(options.CommandExecutionMode, "LogOnly", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(options.CommandExecutionMode, "System", StringComparison.OrdinalIgnoreCase),
+        "Agent:CommandExecutionMode must be LogOnly or System.")
     .ValidateOnStart();
+builder.Services.AddSingleton<ProcessedCommandStore>();
+builder.Services.AddSingleton<WindowsCommandExecutor>();
 builder.Services.AddSingleton<AgentCommandProcessor>();
 builder.Services.AddHostedService<AgentWorker>();
 

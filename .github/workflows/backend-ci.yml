@@ -58,7 +58,9 @@ jobs:
       - name: Apply initial database schema
         env:
           PGPASSWORD: arena_ci
-        run: psql --host 127.0.0.1 --username arena_desk --dbname arena_desk --file server/database/001_initial_schema.sql
+        run: |
+          psql --host 127.0.0.1 --username arena_desk --dbname arena_desk --file server/database/001_initial_schema.sql
+          psql --host 127.0.0.1 --username arena_desk --dbname arena_desk --file server/database/002_agent_commands.sql
 
       - name: Verify API and PostgreSQL readiness
         env:
@@ -105,7 +107,7 @@ jobs:
           fi
           curl --fail --silent --show-error \
             http://127.0.0.1:5080/api/v1/system/status | \
-            jq --exit-status '.stage == 11 and .database == "available"'
+            jq --exit-status '.stage == 12 and .database == "available"'
 
           admin_token=$(curl --fail --silent --show-error \
             --header "Content-Type: application/json" \
@@ -186,3 +188,5 @@ jobs:
             --command "SELECT count(*) FROM payments WHERE session_id = '$session_id';")" = "2"
           test "$(psql --host 127.0.0.1 --username arena_desk --dbname arena_desk --tuples-only --no-align \
             --command "SELECT sum(amount) FROM payments WHERE session_id = '$session_id';")" = "22.50"
+          test "$(psql --host 127.0.0.1 --username arena_desk --dbname arena_desk --tuples-only --no-align \
+            --command "SELECT string_agg(type || ':' || status, ',' ORDER BY created_at_utc, id) FROM agent_commands WHERE session_id = '$session_id';")" = "unlock:Pending,sync-session:Pending,logout:Pending"

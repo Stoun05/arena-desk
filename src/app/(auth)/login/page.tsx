@@ -83,7 +83,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <p className="text-xs text-slate-600">ArenaDesk MVP · Stage 11</p>
+          <p className="text-xs text-slate-600">ArenaDesk MVP · Stage 12</p>
         </section>
 
         <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-10 lg:px-14">

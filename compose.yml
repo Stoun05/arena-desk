@@ -13,6 +13,7 @@ services:
     volumes:
       - arena_postgres_data:/var/lib/postgresql/data
       - ./server/database/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+      - ./server/database/002_agent_commands.sql:/docker-entrypoint-initdb.d/002_agent_commands.sql:ro
 
   api:
     build:

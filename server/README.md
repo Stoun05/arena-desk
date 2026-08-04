@@ -1,6 +1,6 @@
 # ArenaDesk server
 
-Stage 11 adds a separately protected Agent SignalR hub. A Windows Agent binds its unique ID to one configured computer, sends heartbeats, and receives targeted commands after session transactions commit.
+Stage 12 persists Agent commands in PostgreSQL in the same transaction as session changes. A separately protected Agent SignalR hub delivers pending commands immediately or after reconnect, records acknowledgements, and retries stale unacknowledged deliveries.
 
 ## Requirements
 
@@ -32,7 +32,7 @@ The local server listens on `http://localhost:5080`.
 - `POST /api/v1/sessions/{id}/extend` — atomically add time and another payment
 - `POST /api/v1/sessions/{id}/complete` — complete the session and release the computer
 - `/hubs/operations` — authenticated SignalR hub for computer-state changes
-- `/hubs/agents` — shared-key protected Windows Agent registration, heartbeat, acknowledgement, and command channel
+- `/hubs/agents` — shared-key protected Windows Agent registration, heartbeat, durable delivery, and acknowledgement channel
 
 ## Configuration
 
@@ -48,4 +48,4 @@ Configuration can be overridden with standard ASP.NET Core environment variables
 - `BootstrapUsers__CashierUsername`, `BootstrapUsers__CashierPassword`
 - `AgentChannel__AccessKey`
 
-The database schema in `server/database/001_initial_schema.sql` creates six tables and seeds ten computers plus Standard/VIP tariffs. On API startup, missing administrator and cashier accounts are created with hashed passwords from configuration. Values in `.env.example` are local-only examples and must be replaced outside development.
+The initial schema creates six tables and seeds ten computers plus Standard/VIP tariffs. `server/database/002_agent_commands.sql` adds the durable command queue as the seventh table; apply it manually to existing volumes. On API startup, missing administrator and cashier accounts are created with hashed passwords from configuration. Values in `.env.example` are local-only examples and must be replaced outside development.
